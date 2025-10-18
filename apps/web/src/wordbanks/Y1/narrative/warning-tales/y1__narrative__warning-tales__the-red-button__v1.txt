@@ -1,0 +1,28 @@
+Meta
+year: Y1
+text_type: narrative
+sub_type: warning-tales
+topic: The Red Button
+subject_links: English, PSHE
+keywords: warning, temptation, choice, button, lesson, curiosity, trouble
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+button, machine, boy, girl, room, teacher, sound, light
+
+Verbs
+pressed, warned, shouted, waited, listened, stopped, looked, gasped
+
+Adjectives
+red, shiny, loud, scary, bright, big, tiny, curious
+
+Adverbials
+[In the classroom], [Before lunch], [After school], [All of a sudden], [In the corner], [At the table], [In the end], [For a moment]
+
+Conjunctions
+and, because, but, when, if, although, so, while
+
+SentenceStarters
+[In the classroom,], [Before lunch,], [Suddenly,], [After that,], [At last,], [In the end,], [For a moment,], [Next,]

@@ -1,0 +1,31 @@
+Meta
+year: Y6
+text_type: poetry
+sub_type: performance-poetry
+topic: Voices of Change
+subject_links: English, PSHE, History
+keywords: hope, unity, peace, freedom, voice, equality, courage, justice
+reading_age: 10-11
+author: JM
+version: 1
+
+Themes
+equality, protest, hope, courage, unity, justice, resilience, empowerment
+
+RepetitionPhrases
+[We will rise], [Hear our voices], [No more silence], [Together we stand], [This is our time], [Let it begin], [The world will listen], [Now and forever]
+
+RhythmicPatterns
+two-beat refrain, repetition, pause, call-and-response, emphasis, rising rhythm, group chorus, strong cadence
+
+PoeticDevices
+alliteration, metaphor, anaphora, parallelism, rhythm, assonance, enjambment, imagery
+
+EmotionWords
+hopeful, fierce, determined, brave, proud, bold, unbroken, united
+
+PerformanceDirections
+choral reading, echo repetition, audience pause, rising tone, unison verse, solo introduction, body percussion, final shout
+
+ExampleLines
+[We speak for those unheard.], [Our words are bridges, not walls.], [One voice can start the change.], [Together, we are unstoppable.]

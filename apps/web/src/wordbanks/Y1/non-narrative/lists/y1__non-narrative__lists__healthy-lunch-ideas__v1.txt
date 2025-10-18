@@ -1,0 +1,25 @@
+Meta
+year: Y1
+text_type: non-narrative
+sub_type: lists
+topic: Healthy Lunch Ideas
+subject_links: Science, PSHE
+keywords: food, lunch, healthy, snack, fruit, vegetables
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+sandwich, apple, carrot, banana, yoghurt, milk, water, salad
+
+Verbs
+eat, drink, chew, bite, enjoy, pack, share, choose
+
+Adjectives
+healthy, tasty, crunchy, fresh, sweet, soft, juicy, yummy
+
+Adverbials
+[For lunch,], [Every day,], [In the lunchbox,], [After playtime,], [Before home time,], [During snack time,], [At school,], [At home,]
+
+SentenceStarters
+[You could pack...], [Remember to include...], [Try to eat...], [A good lunch has...], [Always choose...], [My favourite lunch is...], [Healthy food helps...], [It is good to...]

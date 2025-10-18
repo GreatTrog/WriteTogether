@@ -1,0 +1,24 @@
+Meta
+year: Y1
+text_type: narrative
+sub_type: traditional-tales
+topic: Woodland Quest
+subject_links: English
+keywords: forest, wolf, brave, basket, path
+reading_age: 5-6
+version: 1
+
+Nouns
+girl, wolf, basket, path, forest, cottage
+
+NounPhrases
+[the dark woods], [the winding path], [a red cloak]
+
+Verbs
+walks, hides, whispers, knocks, helps
+
+Adverbials
+[In the forest], [Along the path], [At the gate]
+
+Starters
+[Once upon a time,], [One day,], [In the end,]

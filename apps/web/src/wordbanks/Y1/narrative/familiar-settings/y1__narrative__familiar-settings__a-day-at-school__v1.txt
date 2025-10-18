@@ -1,0 +1,28 @@
+Meta
+year: Y1
+text_type: narrative
+sub_type: familiar-settings
+topic: A Day at School
+subject_links: English, PSHE
+keywords: school, teacher, friends, playground, lunch, learning
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+teacher, classroom, pencil, playground, lunch, friend, book, desk
+
+Verbs
+played, painted, read, wrote, ate, talked, listened, tidied
+
+Adjectives
+fun, noisy, kind, busy, happy, quiet, small, tired
+
+Adverbials
+[In the classroom], [At lunchtime], [After playtime], [Before home time], [One morning], [During story time], [After break], [At the end of the day]
+
+Conjunctions
+and, because, so, but, when, before, after, while
+
+SentenceStarters
+[One morning,], [In the classroom,], [After playtime,], [Before home time,], [At lunchtime,], [During story time,], [After break,], [At the end of the day,]

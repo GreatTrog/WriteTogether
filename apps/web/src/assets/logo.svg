@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="wwLogoGradient" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#0b1f3a"/>
+      <stop offset="100%" stop-color="#4f86c6"/>
+    </linearGradient>
+  </defs>
+  <circle cx="48" cy="48" r="46" fill="url(#wwLogoGradient)" />
+  <path
+    fill="#fff8e6"
+    d="M27 26h12l9 26 9-26h12l-15 44h-12z"
+  />
+  <path
+    fill="#facc6b"
+    d="M46 58h12l4 12h-12z"
+    opacity="0.8"
+  />
+</svg>

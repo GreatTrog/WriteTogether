@@ -1,0 +1,28 @@
+Meta
+year: Y1
+text_type: non-narrative
+sub_type: reports
+topic: My Favourite Animal
+subject_links: Science
+keywords: animal, pet, cat, dog, facts, food, habitat
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+dog, cat, fur, tail, nose, ears, legs, eyes
+
+Verbs
+runs, jumps, plays, sleeps, eats, drinks, wags, barks
+
+Adjectives
+fluffy, soft, friendly, small, big, brown, happy, noisy
+
+Adverbials
+[In the garden], [At home], [During the day], [At night], [After breakfast], [Every morning], [In winter], [All day long]
+
+DomainTerms
+mammal, habitat, diet, exercise, behaviour, species, paws, whiskers
+
+SentenceStarters
+[My favourite animal is...], [It has...], [It eats...], [It lives...], [It can...], [During the day,], [At night,], [I like it because...]

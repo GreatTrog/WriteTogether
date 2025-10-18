@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "composite": true,
+    "outDir": "dist"
+  },
+  "include": ["vite.config.ts"]
+}

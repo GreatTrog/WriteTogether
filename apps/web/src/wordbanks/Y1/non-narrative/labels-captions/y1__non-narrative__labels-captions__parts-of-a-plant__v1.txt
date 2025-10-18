@@ -1,0 +1,28 @@
+Meta
+year: Y1
+text_type: non-narrative
+sub_type: labels-captions
+topic: Parts of a Plant
+subject_links: Science
+keywords: plant, flower, leaf, root, stem, grow
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+plant, flower, petal, stem, leaf, root, soil, seed
+
+Verbs
+grow, water, plant, bloom, feed, stretch, open, stand
+
+Adjectives
+green, tall, bright, pretty, soft, small, colourful, fresh
+
+Adverbials
+[In the garden], [In the sunlight], [Under the soil], [After watering], [Every day], [In spring], [At the weekend], [Before bedtime]
+
+DomainTerms
+seedling, photosynthesis, germinate, sunlight, nutrients, soil, roots, watering
+
+SentenceStarters
+[The plant has...], [This is the...], [It grows in...], [It needs...], [The leaf is...], [The flower is...], [The roots are...], [Plants need...]

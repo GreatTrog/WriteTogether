@@ -1,0 +1,21 @@
+Meta
+year: Y2
+text_type: non-narrative
+sub_type: instructions
+topic: Planting Seeds
+subject_links: Science
+keywords: seeds, soil, sunlight, germinate
+reading_age: 6-7
+version: 1
+
+Nouns
+seeds, pot, soil, trowel, watering-can
+
+VerbPhrases
+[fill the pot], [press the soil], [water carefully], [place in sunlight]
+
+Adverbials
+[First,], [Next,], [After that,], [Finally,]
+
+DomainTerms
+germinate, seedling, nutrients, sunlight

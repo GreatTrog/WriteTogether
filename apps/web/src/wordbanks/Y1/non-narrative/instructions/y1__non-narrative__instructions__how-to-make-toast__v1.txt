@@ -1,0 +1,34 @@
+Meta
+year: Y1
+text_type: non-narrative
+sub_type: instructions
+topic: How to Make Toast
+subject_links: English, Science
+keywords: toast, butter, knife, bread, breakfast, cooking
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+bread, toaster, butter, knife, plate, jam, kitchen, plug
+
+Verbs
+put, press, wait, take, spread, cut, eat, enjoy
+
+Adjectives
+hot, brown, crispy, soft, tasty, golden, fresh, warm
+
+Adverbials
+[First,], [Next,], [Then,], [After that,], [Finally,], [Before eating,], [In the morning,], [At breakfast,]
+
+Imperatives
+Put, Press, Wait, Take, Spread, Cut, Eat, Enjoy
+
+DomainTerms
+toaster, slice, temperature, heat, plug, electricity, timer, crumb
+
+Scaffolds
+[First, put the bread in the toaster.]  
+[Next, wait until it pops up.]  
+[Then, spread butter on top.]  
+[Finally, eat and enjoy!]

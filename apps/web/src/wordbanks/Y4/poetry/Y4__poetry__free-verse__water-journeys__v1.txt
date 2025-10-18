@@ -1,0 +1,28 @@
+Meta
+year: Y4
+text_type: poetry
+sub_type: free-verse
+topic: Water Journeys
+subject_links: English, Geography
+keywords: river, sea, flow, movement, light, reflection, journey
+reading_age: 8-9
+author: JM
+version: 1
+
+Imagery
+sparkling, rippling, shimmering, silver, endless, flowing, restless, alive
+
+SoundWords
+rush, splash, trickle, crash, whisper, roar, murmur, drip
+
+Adverbials
+[Through the valley], [Under the bridge], [Across the rocks], [Into the sea], [Beneath the sky], [After the storm], [Through the night], [Beyond the shore]
+
+PoeticDevices
+alliteration, repetition, metaphor, personification, onomatopoeia, enjambment, contrast, simile
+
+Structure
+free verse, uneven line lengths, no rhyme, imagery-driven, rhythmical flow, stanza breaks, echoing phrases, movement patterns
+
+ExampleLines
+[The river remembers every stone.], [It twists, turns, sings.], [A whisper becomes a roar.], [I follow where it goes.]

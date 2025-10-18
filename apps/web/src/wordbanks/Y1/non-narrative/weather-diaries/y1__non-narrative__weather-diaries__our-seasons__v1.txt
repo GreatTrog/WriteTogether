@@ -1,0 +1,28 @@
+Meta
+year: Y1
+text_type: non-narrative
+sub_type: weather-diaries
+topic: Our Seasons
+subject_links: Science, Geography
+keywords: weather, rain, sun, wind, snow, seasons, diary
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+rain, sun, wind, snow, cloud, coat, umbrella, leaf
+
+Verbs
+shines, rains, blows, snows, changes, falls, melts, grows
+
+Adjectives
+sunny, rainy, windy, cold, warm, bright, grey, frosty
+
+Adverbials
+[In spring,], [In summer,], [In autumn,], [In winter,], [Every day,], [At lunchtime,], [Before school,], [After playtime,]
+
+DomainTerms
+season, temperature, forecast, weather, rainfall, sunshine, cloud, wind
+
+SentenceStarters
+[Today it is...], [In summer,], [In winter,], [Sometimes it...], [The weather is...], [It feels...], [I like it when...], [It looks...]

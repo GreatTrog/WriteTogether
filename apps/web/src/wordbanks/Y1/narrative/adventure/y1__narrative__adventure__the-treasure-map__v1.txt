@@ -1,0 +1,28 @@
+Meta
+year: Y1
+text_type: narrative
+sub_type: adventure
+topic: The Treasure Map
+subject_links: English, Geography
+keywords: map, island, sea, treasure, pirates, adventure, cave
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+pirate, ship, island, cave, map, sea, chest, sand
+
+Verbs
+sailed, dug, found, followed, climbed, opened, shouted, hid
+
+Adjectives
+brave, golden, small, shiny, dark, noisy, salty, secret
+
+Adverbials
+[On the island], [Under the palm tree], [At sunrise], [After lunch], [All day], [Before sunset], [In the cave], [At last]
+
+Conjunctions
+and, but, because, while, when, so, before, until
+
+SentenceStarters
+[On a sunny day,], [At sea,], [After lunch,], [Before sunset,], [All day,], [In the cave,], [At last,], [Finally,]

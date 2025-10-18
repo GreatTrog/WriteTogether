@@ -1,0 +1,34 @@
+Meta
+year: Y2
+text_type: non-narrative
+sub_type: instructions
+topic: Planting Seeds
+subject_links: Science
+keywords: seeds, soil, sunlight, germinate, water, plants, growth
+reading_age: 6-7
+author: JM
+version: 1
+
+Nouns
+seeds, pot, soil, watering-can, sunlight, trowel, label, compost
+
+VerbPhrases
+[fill the pot], [press the soil], [water carefully], [place in sunlight], [check each day], [cover with compost], [write the label], [watch them grow]
+
+Adverbials
+[First,], [Next,], [After that,], [Finally,], [Every morning], [In warm light], [Before bedtime], [Once a week]
+
+Adjectives
+moist, warm, sunny, small, careful, fresh, deep, healthy
+
+Imperatives
+Fill, Press, Water, Place, Check, Label, Cover, Watch
+
+DomainTerms
+germinate, nutrients, seedling, drainage, growth, roots, shoots, life-cycle
+
+Scaffolds
+[First, fill the pot with soil.]  
+[Next, place the seed inside.]  
+[After that, water carefully.]  
+[Finally, put it in a sunny spot.]

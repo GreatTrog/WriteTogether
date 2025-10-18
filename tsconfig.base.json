@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@writetogether/ui/*": ["packages/ui/src/*"],
+      "@writetogether/schema": ["packages/schema/src/index.ts"],
+      "@writetogether/analytics": ["packages/analytics/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "dist", "build"]
+}

@@ -1,0 +1,25 @@
+Meta
+year: Y1
+text_type: non-narrative
+sub_type: letters
+topic: Thank You to a Firefighter
+subject_links: English, PSHE
+keywords: thank-you, letter, firefighter, help, community, gratitude
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+firefighter, fire, ladder, truck, hose, water, uniform, helmet
+
+Verbs
+helped, saved, carried, drove, sprayed, rescued, worked, smiled
+
+Adjectives
+brave, kind, busy, strong, caring, red, hot, quick
+
+Adverbials
+[Last week,], [At the fire station,], [In the night,], [After the fire,], [During the rescue,], [At the weekend,], [Before the fire ended,], [Afterwards,]
+
+SentenceStarters
+[Dear Firefighter,], [Thank you for...], [I liked when...], [You are very...], [We are all grateful for...], [I hope you stay safe.], [From,], [Your friend,]

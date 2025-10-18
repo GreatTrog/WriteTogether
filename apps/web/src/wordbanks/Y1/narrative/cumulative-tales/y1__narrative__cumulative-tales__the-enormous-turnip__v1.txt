@@ -1,0 +1,28 @@
+Meta
+year: Y1
+text_type: narrative
+sub_type: cumulative-tales
+topic: The Enormous Turnip
+subject_links: English
+keywords: pull, turnip, teamwork, garden, farmer, animals, strength
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+farmer, wife, dog, cat, mouse, turnip, garden, soil
+
+Verbs
+pulled, pushed, tugged, called, helped, planted, grew, shouted
+
+Adjectives
+big, huge, strong, small, tired, muddy, happy, helpful
+
+Adverbials
+[In the garden], [After breakfast], [Before lunch], [One by one], [At last], [All together], [In the end], [With a cheer]
+
+Conjunctions
+and, because, so, when, then, but, while, before
+
+SentenceStarters
+[One morning,], [In the garden,], [After breakfast,], [Before long,], [At last,], [All together,], [Finally,], [In the end,]

@@ -1,0 +1,21 @@
+Meta
+year: Y4
+text_type: poetry
+sub_type: kennings
+topic: Animal Life
+subject_links: English, Science
+keywords: movement, rhythm, pattern
+reading_age: 8-9
+version: 1
+
+Nouns
+lion, fish, bird, snake, fox
+
+PoeticDevices
+alliteration, repetition, metaphor
+
+Structure
+two-word lines, noun-noun pattern
+
+Examples
+[hunter prowler], [wave dancer], [sky singer], [grass crawler]

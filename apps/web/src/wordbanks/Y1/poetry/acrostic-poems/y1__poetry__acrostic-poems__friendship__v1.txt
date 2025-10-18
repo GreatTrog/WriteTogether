@@ -1,0 +1,34 @@
+Meta
+year: Y1
+text_type: poetry
+sub_type: acrostic-poems
+topic: FRIENDSHIP
+subject_links: English, PSHE
+keywords: kindness, caring, friends, feelings, school
+reading_age: 5-6
+author: JM
+version: 1
+
+RhymeWords
+fun/sun, play/day, share/care, true/you, best/rest, smile/while, kind/mind, bright/light
+
+SoundWords
+giggle, laugh, cheer, whisper, sing, clap, shout, hum
+
+Nouns
+friend, smile, hand, game, heart, school, laugh, hug
+
+Verbs
+help, play, share, talk, care, listen, smile, love
+
+Adjectives
+kind, friendly, happy, gentle, funny, caring, lovely, good
+
+Adverbials
+[At school], [Every day], [In the playground], [After lunch], [During story time], [Before home time], [All day long], [With my friends]
+
+Conjunctions
+and, because, so, but, when, if, while, then
+
+SentenceStarters
+[Friends are...], [At school,], [We always...], [When we play,], [After lunch,], [Because we care,], [Every day,], [With a smile,]

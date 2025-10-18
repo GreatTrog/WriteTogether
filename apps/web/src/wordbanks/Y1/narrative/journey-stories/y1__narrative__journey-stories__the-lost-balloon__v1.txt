@@ -1,0 +1,28 @@
+Meta
+year: Y1
+text_type: narrative
+sub_type: journey-stories
+topic: The Lost Balloon
+subject_links: English, Geography
+keywords: balloon, wind, sky, chase, lost, journey, park, clouds
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+balloon, wind, sky, park, child, tree, bird, cloud
+
+Verbs
+floated, chased, flew, landed, ran, climbed, smiled, waved
+
+Adjectives
+red, bright, round, soft, happy, windy, blue, gentle
+
+Adverbials
+[In the park], [Over the hill], [Across the sky], [Through the trees], [One morning], [At last], [Before bedtime], [All day long]
+
+Conjunctions
+and, so, because, but, when, if, although, until
+
+SentenceStarters
+[One morning,], [As the balloon drifted away,], [After that,], [In the distance,], [Before long,], [At last,], [Suddenly,], [In the end,]

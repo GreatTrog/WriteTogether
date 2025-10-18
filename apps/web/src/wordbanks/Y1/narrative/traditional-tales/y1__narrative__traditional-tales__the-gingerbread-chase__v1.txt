@@ -1,0 +1,28 @@
+Meta
+year: Y1
+text_type: narrative
+sub_type: traditional-tales
+topic: The Gingerbread Chase
+subject_links: English
+keywords: bake, fox, river, chase, oven, run, gingerbread, escape
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+gingerbread, fox, oven, river, old-woman, old-man, cow, horse
+
+Verbs
+baked, ran, chased, shouted, laughed, splashed, floated, jumped
+
+Adjectives
+quick, clever, brown, hungry, hot, wet, tiny, round
+
+Adverbials
+[In the kitchen], [Across the field], [Over the bridge], [Into the river], [After a while], [At the farm], [All of a sudden], [In the end]
+
+Conjunctions
+and, but, because, so, when, if, although, then
+
+SentenceStarters
+[Once upon a time,], [One day,], [Suddenly,], [After that,], [Before long,], [In the end,], [Later that day,], [At last,]

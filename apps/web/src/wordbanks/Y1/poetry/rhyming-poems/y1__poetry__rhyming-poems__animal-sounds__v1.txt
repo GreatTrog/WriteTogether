@@ -1,0 +1,34 @@
+Meta
+year: Y1
+text_type: poetry
+sub_type: rhyming-poems
+topic: Animal Sounds
+subject_links: English, Science
+keywords: animals, sounds, rhyme, rhythm, noise
+reading_age: 5-6
+author: JM
+version: 1
+
+RhymeWords
+cat/hat, dog/frog, cow/how, bee/tree, sheep/sleep, pig/jig, hen/pen, duck/luck
+
+SoundWords
+buzz, moo, oink, quack, baa, hiss, roar, squeak
+
+Nouns
+animal, farm, field, sky, sound, pond, barn, zoo
+
+Verbs
+run, jump, fly, eat, sleep, moo, quack, baa
+
+Adjectives
+soft, loud, furry, tiny, big, happy, noisy, gentle
+
+Adverbials
+[In the field], [On the farm], [By the pond], [In the zoo], [Every day], [At night], [After breakfast], [Before bed]
+
+Conjunctions
+and, but, so, because, when, while, if, then
+
+SentenceStarters
+[The cow says...], [In the morning,], [When the sun shines,], [At night,], [Sometimes,], [After the rain,], [Before bedtime,], [All day long,]

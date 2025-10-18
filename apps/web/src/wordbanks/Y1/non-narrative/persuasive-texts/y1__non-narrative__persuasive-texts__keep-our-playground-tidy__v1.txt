@@ -1,0 +1,30 @@
+﻿Meta
+year: Y1
+text_type: non-narrative
+sub_type: persuasive-texts
+topic: Keep Our Playground Tidy
+subject_links: PSHE
+keywords: litter, clean, recycling, rubbish, tidy, bins
+reading_age: 5-6
+author: JM
+version: 1
+
+Nouns
+litter, bin, rubbish, paper, playground, grass, bag, glove
+
+Verbs
+pick, throw, clean, help, recycle, save, keep, care
+
+Adjectives
+clean, tidy, nice, safe, pretty, fresh, bright, happy
+
+Adverbials
+[Every day,], [At playtime,], [After lunch,], [Before home time,], [In the playground,], [When you finish,], [At the end of the day,], [Always,]
+
+Imperatives
+Pick, Throw, Clean, Help, Recycle, Save, Keep, Care
+
+SentenceStarters
+[We must...], [Please remember to...], [Always...], [It is important to...], [Our playground should...], [Together we can...], [When we all help,], [Let's make it...]
+
+

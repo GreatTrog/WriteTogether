@@ -1,0 +1,34 @@
+Meta
+year: Y5
+text_type: narrative
+sub_type: mythic-quest
+topic: The Trials of Heracles
+subject_links: English, History
+keywords: hero, challenge, strength, gods, monsters, courage, journey
+reading_age: 9-10
+author: JM
+version: 1
+
+Nouns
+hero, beast, god, sword, trial, mountain, oracle, battle
+
+NounPhrases
+[the blazing sun], [the golden apples], [the mighty lion], [a cursed temple], [the winding labyrinth], [the trembling earth], [the silver river], [the dark cave]
+
+Verbs
+fought, travelled, challenged, begged, promised, conquered, rescued, triumphed
+
+Adjectives
+brave, powerful, wise, furious, divine, trembling, victorious, eternal
+
+Adverbials
+[At dawn], [Under the mountain], [Beyond the gates], [After many days], [Before the final battle], [In the temple], [During the storm], [At last]
+
+Conjunctions
+although, because, while, if, when, so, yet, before
+
+Starters
+[Long ago,], [In ancient times,], [When the gods were angry,], [Before the journey began,], [At the edge of the world,], [After many trials,], [In the end,], [And so it was...]
+
+FigurativeLanguage
+metaphor, simile, personification, hyperbole, symbolism, repetition, allusion, imagery

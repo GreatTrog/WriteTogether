@@ -1,0 +1,34 @@
+Meta
+year: Y3
+text_type: non-narrative
+sub_type: reports
+topic: Ancient Egypt
+subject_links: History
+keywords: pyramids, Nile, pharaohs, gods, mummification, tombs, desert
+reading_age: 7-8
+author: JM
+version: 1
+
+Nouns
+pyramid, pharaoh, tomb, mummy, Nile, temple, desert, scribe
+
+NounPhrases
+[the River Nile], [the Valley of the Kings], [the golden mask], [the hot desert], [the ancient temple], [a mighty pharaoh], [a secret tomb], [a stone sarcophagus]
+
+Verbs
+ruled, built, believed, worshipped, traded, discovered, decorated, recorded
+
+Adjectives
+ancient, powerful, sacred, golden, dry, hidden, grand, mysterious
+
+Adverbials
+[In Ancient Egypt], [Over 3,000 years ago], [Along the River Nile], [Inside the tombs], [During the floods], [At harvest time], [In the desert heat], [After death]
+
+Conjunctions
+because, so, when, before, after, although, if, while
+
+SentenceStarters
+[Ancient Egyptians believed that...], [The pharaoh was...], [People built...], [The River Nile provided...], [They used...], [It was important because...], [During the floods,], [At this time,]
+
+DomainTerms
+hieroglyphics, sarcophagus, mummification, papyrus, irrigation, civilisation, artefacts, embalm
