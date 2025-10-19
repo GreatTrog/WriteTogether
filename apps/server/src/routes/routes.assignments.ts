@@ -2,6 +2,8 @@ import { Router } from "express";
 
 const assignmentsRouter = Router();
 
+// Placeholder endpoints keep the contract visible while the data layer is built.
+
 assignmentsRouter.get("/", (_req, res) => {
   res.json({ assignments: [] });
 });

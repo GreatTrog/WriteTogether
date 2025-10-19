@@ -1,3 +1,4 @@
+// Shared timeline helpers used by the teacher analytics panel.
 export type TimelinePoint = {
   timestamp: string;
   value: number;
@@ -8,6 +9,7 @@ export const normaliseTimeline = (points: TimelinePoint[]) =>
     .slice()
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
+// Smooth out noisy data with a simple trailing average sized by the caller.
 export const rollingAverage = (points: TimelinePoint[], window = 3) => {
   if (window <= 0) {
     throw new Error("Window must be greater than zero");

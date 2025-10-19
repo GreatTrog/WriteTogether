@@ -2,6 +2,8 @@ import { Router } from "express";
 
 const documentsRouter = Router();
 
+// Placeholder endpoints keep the contract visible while the data layer is built.
+
 documentsRouter.get("/", (_req, res) => {
   res.json({ documents: [] });
 });

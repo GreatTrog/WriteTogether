@@ -1,4 +1,4 @@
-﻿import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTeacherStore } from "../../store/useTeacherStore";
 import {
@@ -39,6 +39,7 @@ const describeHeadings = (doc: WordBankSnapshot) =>
 
 type CatalogWordBankState = WordBankSnapshot;
 
+// Catalog browser plus custom bank builder used by both modes.
 const WordBanksPanel = () => {
   const { wordBanks, addWordBank } = useTeacherStore();
   const navigate = useNavigate();
@@ -60,6 +61,7 @@ const WordBanksPanel = () => {
   const [description, setDescription] = useState("");
 
   const availableSubTypes = useMemo(() => {
+    // When a text type is chosen, limit the subtype filter to relevant options.
     if (textTypeFilter === ALL) {
       return catalogSubTypes;
     }
@@ -67,6 +69,7 @@ const WordBanksPanel = () => {
   }, [textTypeFilter]);
 
   const filteredCatalog = useMemo(() => {
+    // Apply the faceted filters to the locally bundled word bank catalog.
     const normalisedQuery = query.trim().toLowerCase();
 
     return wordBankCatalog.filter((doc) => {
@@ -117,6 +120,7 @@ const WordBanksPanel = () => {
     readingAgeFilter !== ALL;
 
   const handleSubmit = (event: FormEvent) => {
+    // Capture quick teacher-authored lists and push them into the shared store.
     event.preventDefault();
     if (!title.trim() || !items.trim()) {
       return;
@@ -148,6 +152,7 @@ const WordBanksPanel = () => {
   };
 
   const customGroups = useMemo(() => {
+    // Group saved banks by category so the overview mirrors the library tabs.
     return categories.map((entry) => ({
       ...entry,
       banks: wordBanks.filter((bank) => bank.category === entry.value),
@@ -429,7 +434,7 @@ const WordBanksPanel = () => {
               type="text"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="e.g. Shackleton Equipment"
+              placeholder="e.g. Collaboration Tools"
               className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
               required
             />
@@ -440,7 +445,7 @@ const WordBanksPanel = () => {
               type="text"
               value={topic}
               onChange={(event) => setTopic(event.target.value)}
-              placeholder="e.g. Antarctica"
+              placeholder="e.g. Innovation Project"
               className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
             />
           </label>
@@ -492,7 +497,7 @@ const WordBanksPanel = () => {
             <textarea
               value={items}
               onChange={(event) => setItems(event.target.value)}
-              placeholder="sledgehammer&#10;lantern&#10;compass"
+              placeholder="prototype&#10;blueprint&#10;feedback"
               rows={4}
               className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
               required

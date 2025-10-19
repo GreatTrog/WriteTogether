@@ -4,6 +4,7 @@ import WordBanksPanel from "../sections/teacher/WordBanksPanel";
 import AssignmentsPanel from "../sections/teacher/AssignmentsPanel";
 import AnalyticsPanel from "../sections/teacher/AnalyticsPanel";
 
+// Secondary nav mirrors the teacher workflow areas surfaced in Phase 1.
 const sections = [
   { path: "", label: "Dashboard" },
   { path: "classes", label: "Classes & Pupils" },
@@ -44,6 +45,7 @@ const TeacherConsole = () => {
         ))}
       </nav>
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        {/* Swap the focused management view while keeping the surrounding context. */}
         <Routes>
           <Route
             index

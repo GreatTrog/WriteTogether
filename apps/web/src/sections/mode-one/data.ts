@@ -1,5 +1,6 @@
 import type { ColourSlot } from "@writetogether/schema";
 
+// Seed data used to populate the Mode 1 drag-and-drop chips.
 export type SemanticsChip = {
   id: string;
   label: string;
@@ -7,6 +8,7 @@ export type SemanticsChip = {
   prompt?: string;
 };
 
+// Controls the order each sentence slot appears in Mode 1.
 export const slotOrder: ColourSlot[] = [
   "who",
   "doing",
@@ -23,6 +25,7 @@ export const slotLabels: Record<ColourSlot, string> = {
   when: "When",
 };
 
+// Default set balances topic flavour with general academic language.
 export const defaultChips: SemanticsChip[] = [
   { id: "c-wh-1", label: "The explorer", slot: "who" },
   { id: "c-wh-2", label: "My teacher", slot: "who" },

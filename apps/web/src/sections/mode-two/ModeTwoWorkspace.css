@@ -42,7 +42,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--mode-two-spacing-lg);
-  height: 100%;
+  height: auto;
   font-size: var(--mode-two-font-size-sm);
   color: var(--mode-two-color-primary);
 }
@@ -207,16 +207,17 @@
 .mode-two-canvas-shell {
   width: 100%;
   display: flex;
-  justify-content: center;
+  justify-content: stretch;
 }
 
 .mode-two-canvas {
   display: flex;
   flex-direction: column;
   gap: var(--mode-two-spacing-sm);
-  height: 100%;
-  width: min(100%, 760px);
-  flex: 1 1 760px;
+  height: auto;
+  width: 100%;
+  max-width: none;
+  flex: 0 0 auto;
   background-color: var(--mode-two-color-surface);
   color: var(--mode-two-color-primary);
   border-radius: var(--mode-two-radius-xl);
@@ -229,7 +230,7 @@
   flex-direction: column;
   gap: calc(var(--mode-two-spacing-sm) * 0.6);
   min-height: 0;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
 }
 
 .mode-two-toolbar {
@@ -278,8 +279,8 @@
 }
 
 .mode-two-editor {
-  min-height: 180px;
-  flex: 1 1 auto;
+  min-height: max(180px, calc(3 * 1.6em));
+  flex: 0 0 auto;
   overflow: auto;
   border: 1px solid var(--mode-two-color-border);
   border-radius: var(--mode-two-radius-xl);
@@ -372,24 +373,24 @@
   gap: var(--mode-two-spacing-lg);
   padding-bottom: var(--mode-two-spacing-sm);
   width: 100%;
-  max-width: 760px;
-  margin: 0 auto;
-  max-height: min(calc(100vh - 320px), 640px);
+  margin: 0;
   overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-  justify-items: center;
+  overflow-y: visible;
+  scrollbar-gutter: stable both-edges;
+  justify-items: stretch;
 }
 
-.mode-two-bank-strip--alphabetical {
+.mode-two-bank-strip--alpha,
+.mode-two-alpha-wrapper {
   display: flex;
   flex-direction: column;
   gap: var(--mode-two-spacing-md);
   width: 100%;
-  max-width: 760px;
-  margin: 0 auto;
-  max-height: min(calc((160px * 2) + var(--mode-two-spacing-md)), calc(100vh - 320px));
-  overflow-y: auto;
+  margin: 0;
+  overflow-y: visible;
+  overflow-x: hidden;
+  scrollbar-gutter: stable both-edges;
+  padding-right: 0.25rem;
 }
 
 .mode-two-alpha-strip {
@@ -398,11 +399,10 @@
   justify-content: center;
   gap: 0.2rem;
   width: 100%;
-  max-width: 760px;
-  margin: var(--mode-two-spacing-xs) auto var(--mode-two-spacing-xs);
+  margin: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: stable both-edges;
   padding: var(--mode-two-spacing-xs) calc(var(--mode-two-spacing-xs) * 1.5);
   background-color: var(--mode-two-color-panel);
   border: 1px solid var(--mode-two-color-border);
@@ -436,6 +436,10 @@
 .mode-two-alpha-link:hover {
   background-color: var(--mode-two-color-highlight);
 }
+.mode-two-alpha-link--active {
+  background-color: var(--mode-two-color-primary);
+  color: var(--mode-two-color-panel);
+}
 
 .mode-two-alpha-link:focus-visible {
   outline: 2px solid var(--mode-two-focus-outline);
@@ -458,8 +462,7 @@
   flex-direction: column;
   gap: var(--mode-two-spacing-md);
   min-width: 260px;
-  max-width: 760px;
-  width: min(100%, 760px);
+  width: 100%;
   min-height: 160px;
   flex-shrink: 0;
   border: 1px solid var(--mode-two-color-border);
@@ -533,8 +536,7 @@
   flex-direction: column;
   gap: var(--mode-two-spacing-md);
   min-width: 260px;
-  max-width: 760px;
-  width: min(100%, 760px);
+  width: 100%;
   min-height: 140px;
   flex-shrink: 0;
   border: 1px solid var(--mode-two-color-border);
@@ -713,4 +715,5 @@
   --mode-two-shadow-sm: 0 1px 2px rgba(4, 6, 14, 0.6);
   --mode-two-shadow-inner: inset 0 2px 4px rgba(4, 6, 14, 0.6);
 }
+
 

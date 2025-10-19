@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Shared schema primitives keep the front-end and API aligned as features evolve.
 export const ColourSlotSchema = z.enum(["who", "doing", "what", "where", "when"]);
 
 export const WordBankItemSchema = z.object({
@@ -10,6 +11,7 @@ export const WordBankItemSchema = z.object({
   tags: z.array(z.string()).default([]),
 });
 
+// Word bank shape underpins both the pupil tooling and teacher catalog views.
 export const WordBankSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -20,6 +22,7 @@ export const WordBankSchema = z.object({
   items: z.array(WordBankItemSchema),
 });
 
+// Assignment settings mirror the UI constraints (max banks, optional template, etc.).
 export const AssignmentSchema = z.object({
   id: z.string(),
   classId: z.string(),

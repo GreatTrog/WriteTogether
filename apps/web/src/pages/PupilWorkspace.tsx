@@ -3,9 +3,10 @@ import ModeOneBuilder from "../sections/mode-one/ModeOneBuilder";
 import ModeTwoWorkspace from "../sections/mode-two/ModeTwoWorkspace";
 
 const PupilWorkspace = () => {
+  // Presents either scaffold depending on the selected mode path.
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex flex-1 overflow-hidden rounded-2xl">
+    <div className="flex flex-col overflow-hidden">
+      <div className="flex overflow-hidden rounded-2xl">
         <Routes>
           <Route
             index

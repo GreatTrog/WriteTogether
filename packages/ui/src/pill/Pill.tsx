@@ -14,6 +14,7 @@ const toneClasses: Record<NonNullable<PillProps["tone"]>, string> = {
   danger: "bg-rose-500 text-white hover:bg-rose-600",
 };
 
+// Reusable button styling for filters and tabs across the workspace.
 const Pill = ({
   children,
   active = false,

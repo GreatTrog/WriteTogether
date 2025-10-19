@@ -7,6 +7,7 @@ import router from "./routes";
 
 const app = express();
 
+// Harden and expose the minimal API used by the prototype front-end.
 app.use(helmet());
 app.use(
   cors({
@@ -17,12 +18,15 @@ app.use(
 app.use(express.json());
 app.use(morgan("dev"));
 
+// Health check keeps deployment monitors simple.
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
 });
 
+// Route modules live under a single /api namespace for clarity.
 app.use("/api", router);
 
+// Fallback keeps the JSON contract consistent for unknown routes.
 app.use((_req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
