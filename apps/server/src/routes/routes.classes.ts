@@ -2,6 +2,8 @@ import { Router } from "express";
 
 const classesRouter = Router();
 
+// Placeholder endpoints keep the contract visible while the data layer is built.
+
 classesRouter.get("/", (_req, res) => {
   res.json({ classes: [] });
 });

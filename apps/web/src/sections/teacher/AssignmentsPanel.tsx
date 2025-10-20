@@ -1,4 +1,4 @@
-﻿import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTeacherStore } from "../../store/useTeacherStore";
 import {
@@ -57,6 +57,7 @@ const makeCatalogOption = (payload: CatalogWordBankPayload): AssignmentBankOptio
   };
 };
 
+// Wizard-style flow to draft writing tasks and attach the right scaffolds.
 const AssignmentsPanel = () => {
   const { classes, wordBanks, assignments, createAssignment } = useTeacherStore();
   const location = useLocation<{ catalogWordBank?: CatalogWordBankPayload } | null>();
@@ -102,6 +103,7 @@ const AssignmentsPanel = () => {
   }, [location.state, navigate]);
 
   const libraryBanks = useMemo<AssignmentBankOption[]>(() => {
+    // Filter the static demo banks to match the chosen pupil mode.
     const allowedCategories =
       mode === "mode1" ? new Set(["verbs", "nouns", "adjectives"]) : null;
 
@@ -121,6 +123,7 @@ const AssignmentsPanel = () => {
   }, [wordBanks, mode]);
 
   const availableBanks = useMemo<AssignmentBankOption[]>(() => {
+    // Merge the teacher library with any catalog import the user just pulled in.
     const combined = [...libraryBanks];
     if (catalogBank) {
       const existingIndex = combined.findIndex(
@@ -138,6 +141,7 @@ const AssignmentsPanel = () => {
   const pinnedBanksOverflow = selectedBanks.length > 6;
 
   const handleToggleBank = (bankId: string) => {
+    // Keep the selection bounded and stable so templates feel predictable.
     setSelectedBanks((prev) =>
       prev.includes(bankId)
         ? prev.filter((id) => id !== bankId)
@@ -148,6 +152,7 @@ const AssignmentsPanel = () => {
   };
 
   const handleSubmit = (event: FormEvent) => {
+    // Snapshot the assignment into Zustand which acts as our stub data layer.
     event.preventDefault();
     if (!title.trim() || !classId || selectedBanks.length === 0) {
       return;

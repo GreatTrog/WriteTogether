@@ -1,7 +1,9 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColourSlot } from "@writetogether/schema";
 import WorkspaceLayout from "../../layouts/WorkspaceLayout";
 import useSpeechSynthesis from "../../hooks/useSpeechSynthesis";
+import { useGlobalMenu } from "../../components/GlobalMenu";
+import VoiceRecorderControls from "../../components/VoiceRecorderControls";
 import { slotLabels, slotOrder, defaultChips } from "./data";
 
 type SlotState = Record<
@@ -16,6 +18,14 @@ type SentencePart = {
   slot: ColourSlot;
   text: string;
 };
+
+const cloneSlotState = (state: SlotState): SlotState => ({
+  who: { ...state.who },
+  doing: { ...state.doing },
+  what: { ...state.what },
+  where: { ...state.where },
+  when: { ...state.when },
+});
 
 const storageKey = "writetogether-mode1";
 
@@ -91,6 +101,7 @@ const slotPalette: Record<
 };
 
 const ModeOneBuilder = () => {
+  const { setContent: setGlobalMenuContent } = useGlobalMenu();
   const [slotState, setSlotState] = useState<SlotState>(() => {
     if (typeof window === "undefined") {
       return initialState;
@@ -224,7 +235,7 @@ const ModeOneBuilder = () => {
     };
   }, [slotState, punctuation]);
 
-  const handleToggleSlot = (slot: ColourSlot) => {
+  const handleToggleSlot = useCallback((slot: ColourSlot) => {
     setSlotState((prev) => {
       const next = { ...prev };
       const currentlyEnabled = prev[slot].enabled;
@@ -234,17 +245,20 @@ const ModeOneBuilder = () => {
       };
       return next;
     });
-  };
+  }, [setSlotState]);
 
-  const handleAssignChip = useCallback((slot: ColourSlot, chipId: string) => {
+  const assignChipToSlot = useCallback((slot: ColourSlot, chipId: string) => {
     setSlotState((prev) => {
-      const next: SlotState = {
-        who: { ...prev.who },
-        doing: { ...prev.doing },
-        what: { ...prev.what },
-        where: { ...prev.where },
-        when: { ...prev.when },
-      };
+      const chipAlreadyAssignedHere = prev[slot].chipId === chipId;
+      const chipAssignedElsewhere = slotOrder.some(
+        (existingSlot) =>
+          existingSlot !== slot && prev[existingSlot].chipId === chipId,
+      );
+      if (chipAlreadyAssignedHere && !chipAssignedElsewhere) {
+        return prev;
+      }
+
+      const next = cloneSlotState(prev);
 
       slotOrder.forEach((existingSlot) => {
         if (next[existingSlot].chipId === chipId) {
@@ -252,13 +266,23 @@ const ModeOneBuilder = () => {
         }
       });
 
-      next[slot].chipId =
-        prev[slot].chipId === chipId ? undefined : chipId;
+      next[slot].chipId = chipId;
       return next;
     });
   }, []);
 
-  const handleClear = () => {
+  const clearSlot = useCallback((slot: ColourSlot) => {
+    setSlotState((prev) => {
+      if (!prev[slot].chipId) {
+        return prev;
+      }
+      const next = cloneSlotState(prev);
+      next[slot].chipId = undefined;
+      return next;
+    });
+  }, []);
+
+  const handleClear = useCallback(() => {
     setSlotState((prev) => ({
       who: { ...prev.who, chipId: undefined },
       doing: { ...prev.doing, chipId: undefined },
@@ -267,7 +291,7 @@ const ModeOneBuilder = () => {
       when: { ...prev.when, chipId: undefined },
     }));
     stop();
-  };
+  }, [stop]);
 
   const handleSpeak = () => {
     if (!sentenceText) {
@@ -288,7 +312,7 @@ const ModeOneBuilder = () => {
     if (!droppedId) {
       return;
     }
-    handleAssignChip(slot, droppedId);
+    assignChipToSlot(slot, droppedId);
     setDraggingChip(null);
   };
 
@@ -306,8 +330,8 @@ const ModeOneBuilder = () => {
     setHoverSlot(null);
   };
 
-  const leftMenu = (
-    <div className="flex h-full flex-col gap-4 text-sm text-slate-700">
+  const settingsMenu = useMemo(() => (
+    <div className="flex flex-col gap-4 text-sm text-slate-700">
       <div>
         <p className="font-semibold text-slate-900">Teacher Controls</p>
         <p className="mt-1 text-xs text-slate-500">
@@ -361,8 +385,7 @@ const ModeOneBuilder = () => {
         Clear sentence
       </button>
     </div>
-  );
-
+  ), [handleClear, handleToggleSlot, punctuation, slotState]);
   const slotBoard = (
     <div className="flex flex-wrap items-center justify-center gap-3">
       {slotOrder.map((slot) => {
@@ -391,7 +414,7 @@ const ModeOneBuilder = () => {
             onDragEnter={() => setHoverSlot(slot)}
             onDragLeave={() => setHoverSlot(null)}
             onDrop={(event) => handleDropOnSlot(event, slot)}
-            onClick={() => chipId && handleAssignChip(slot, chipId)}
+            onClick={() => chipId && clearSlot(slot)}
             className={`relative min-h-[90px] min-w-[140px] rounded-3xl px-4 py-3 text-left transition ${
               chip ? palette.slotSelected : palette.slotIdle
             } ${isHovering ? "ring-4 ring-offset-2 ring-semantics-who/40" : ""}`}
@@ -409,6 +432,11 @@ const ModeOneBuilder = () => {
     </div>
   );
 
+  useEffect(() => {
+    setGlobalMenuContent(settingsMenu);
+    return () => setGlobalMenuContent(null);
+  }, [setGlobalMenuContent, settingsMenu]);
+
   const canvas = (
     <div className="flex h-full flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -420,21 +448,12 @@ const ModeOneBuilder = () => {
             Drag puzzle pieces into place from the tabs below
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {voices.length > 0 && (
-            <select
-              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
-              value={voiceIndex}
-              onChange={(event) => setVoiceIndex(Number(event.target.value))}
-              aria-label="Choose British English voice"
-            >
-              {voices.map((voice, index) => (
-                <option key={voice.name} value={index}>
-                  {voice.name} ({voice.lang})
-                </option>
-              ))}
-            </select>
-          )}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <VoiceRecorderControls
+            orientation="inline"
+            size="compact"
+            hideStatus
+          />
           <button
             type="button"
             onClick={isSpeaking ? stop : handleSpeak}
@@ -511,7 +530,6 @@ const ModeOneBuilder = () => {
                     draggable={!isDisabled}
                     onDragStart={(event) => handleDragStart(event, chip.id)}
                     onDragEnd={handleDragEnd}
-                    onClick={() => handleAssignChip(slot, chip.id)}
                     disabled={isDisabled}
                     className={`relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
                       isSelected ? palette.chipSelected : palette.chip
@@ -544,7 +562,6 @@ const ModeOneBuilder = () => {
 
   return (
     <WorkspaceLayout
-      leftMenu={leftMenu}
       canvas={canvas}
       tabs={[
         { id: "chips", label: "Sentence Parts", content: sentencePartsTab },
@@ -560,3 +577,9 @@ const ModeOneBuilder = () => {
 };
 
 export default ModeOneBuilder;
+
+
+
+
+
+

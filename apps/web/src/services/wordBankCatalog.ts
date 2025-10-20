@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Lookup metadata and loader for the on-disk word bank collection bundled with Vite.
 export const TEXT_TYPE_LABELS = [
   { value: "narrative", label: "Narrative" },
   { value: "non-narrative", label: "Non-Narrative" },
@@ -90,6 +91,7 @@ export type WordBankSnapshot = Pick<
   "id" | "fileName" | "meta" | "headings"
 >;
 
+// Vite eagerly inlines every word bank text file so we can parse them on boot.
 const rawModules = import.meta.glob<string>("../wordbanks/**/*.txt", {
   eager: true,
   import: "default",
@@ -97,6 +99,7 @@ const rawModules = import.meta.glob<string>("../wordbanks/**/*.txt", {
 });
 
 const parseWordBank = (raw: string, filePath: string): WordBankDocument => {
+  // Parse the markdown-like bank format into structured metadata and headings.
   const paragraphs = raw
     .split(/\r?\n\s*\r?\n/)
     .map((block) => block.trim())
@@ -249,10 +252,12 @@ const parseWordBank = (raw: string, filePath: string): WordBankDocument => {
   };
 };
 
+// Build an in-memory catalog once so downstream hooks just filter arrays.
 const catalog: WordBankDocument[] = Object.entries(rawModules).map(
   ([filePath, rawContent]) => parseWordBank(rawContent, filePath),
 );
 
+// Ensure dropdown options stay deduplicated and alphabetised.
 const unique = (values: string[]) =>
   Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
 

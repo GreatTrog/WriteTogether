@@ -10,6 +10,7 @@ if (!rootElement) {
   throw new Error("Root element not found");
 }
 
+// Mount the React app with routing enabled so workspace pages share navigation state.
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <BrowserRouter>
