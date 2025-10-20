@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColourSlot } from "@writetogether/schema";
 import WorkspaceLayout from "../../layouts/WorkspaceLayout";
 import useSpeechSynthesis from "../../hooks/useSpeechSynthesis";
@@ -18,6 +18,14 @@ type SentencePart = {
   slot: ColourSlot;
   text: string;
 };
+
+const cloneSlotState = (state: SlotState): SlotState => ({
+  who: { ...state.who },
+  doing: { ...state.doing },
+  what: { ...state.what },
+  where: { ...state.where },
+  when: { ...state.when },
+});
 
 const storageKey = "writetogether-mode1";
 
@@ -227,7 +235,7 @@ const ModeOneBuilder = () => {
     };
   }, [slotState, punctuation]);
 
-  const handleToggleSlot = (slot: ColourSlot) => {
+  const handleToggleSlot = useCallback((slot: ColourSlot) => {
     setSlotState((prev) => {
       const next = { ...prev };
       const currentlyEnabled = prev[slot].enabled;
@@ -237,17 +245,20 @@ const ModeOneBuilder = () => {
       };
       return next;
     });
-  };
+  }, [setSlotState]);
 
-  const handleAssignChip = useCallback((slot: ColourSlot, chipId: string) => {
+  const assignChipToSlot = useCallback((slot: ColourSlot, chipId: string) => {
     setSlotState((prev) => {
-      const next: SlotState = {
-        who: { ...prev.who },
-        doing: { ...prev.doing },
-        what: { ...prev.what },
-        where: { ...prev.where },
-        when: { ...prev.when },
-      };
+      const chipAlreadyAssignedHere = prev[slot].chipId === chipId;
+      const chipAssignedElsewhere = slotOrder.some(
+        (existingSlot) =>
+          existingSlot !== slot && prev[existingSlot].chipId === chipId,
+      );
+      if (chipAlreadyAssignedHere && !chipAssignedElsewhere) {
+        return prev;
+      }
+
+      const next = cloneSlotState(prev);
 
       slotOrder.forEach((existingSlot) => {
         if (next[existingSlot].chipId === chipId) {
@@ -255,8 +266,18 @@ const ModeOneBuilder = () => {
         }
       });
 
-      next[slot].chipId =
-        prev[slot].chipId === chipId ? undefined : chipId;
+      next[slot].chipId = chipId;
+      return next;
+    });
+  }, []);
+
+  const clearSlot = useCallback((slot: ColourSlot) => {
+    setSlotState((prev) => {
+      if (!prev[slot].chipId) {
+        return prev;
+      }
+      const next = cloneSlotState(prev);
+      next[slot].chipId = undefined;
       return next;
     });
   }, []);
@@ -291,7 +312,7 @@ const ModeOneBuilder = () => {
     if (!droppedId) {
       return;
     }
-    handleAssignChip(slot, droppedId);
+    assignChipToSlot(slot, droppedId);
     setDraggingChip(null);
   };
 
@@ -393,7 +414,7 @@ const ModeOneBuilder = () => {
             onDragEnter={() => setHoverSlot(slot)}
             onDragLeave={() => setHoverSlot(null)}
             onDrop={(event) => handleDropOnSlot(event, slot)}
-            onClick={() => chipId && handleAssignChip(slot, chipId)}
+            onClick={() => chipId && clearSlot(slot)}
             className={`relative min-h-[90px] min-w-[140px] rounded-3xl px-4 py-3 text-left transition ${
               chip ? palette.slotSelected : palette.slotIdle
             } ${isHovering ? "ring-4 ring-offset-2 ring-semantics-who/40" : ""}`}
@@ -509,7 +530,6 @@ const ModeOneBuilder = () => {
                     draggable={!isDisabled}
                     onDragStart={(event) => handleDragStart(event, chip.id)}
                     onDragEnd={handleDragEnd}
-                    onClick={() => handleAssignChip(slot, chip.id)}
                     disabled={isDisabled}
                     className={`relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
                       isSelected ? palette.chipSelected : palette.chip
