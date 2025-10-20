@@ -385,17 +385,10 @@
 
 .mode-two-bank-strip--alpha,
 .mode-two-alpha-wrapper {
-.mode-two-bank-strip--alpha,
-.mode-two-alpha-wrapper {
   display: flex;
   flex-direction: column;
   gap: var(--mode-two-spacing-md);
   width: 100%;
-  margin: 0;
-  overflow-y: visible;
-  overflow-x: hidden;
-  scrollbar-gutter: stable both-edges;
-  padding-right: 0.25rem;
   margin: 0;
   overflow-y: visible;
   overflow-x: hidden;
@@ -410,10 +403,8 @@
   gap: 0.2rem;
   width: 100%;
   margin: 0;
-  margin: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
-  scrollbar-gutter: stable both-edges;
   scrollbar-gutter: stable both-edges;
   padding: var(--mode-two-spacing-xs) calc(var(--mode-two-spacing-xs) * 1.5);
   background-color: var(--mode-two-color-panel);
@@ -452,10 +443,6 @@
   background-color: var(--mode-two-color-primary);
   color: var(--mode-two-color-panel);
 }
-.mode-two-alpha-link--active {
-  background-color: var(--mode-two-color-primary);
-  color: var(--mode-two-color-panel);
-}
 
 .mode-two-alpha-link:focus-visible {
   outline: 2px solid var(--mode-two-focus-outline);
@@ -478,7 +465,6 @@
   flex-direction: column;
   gap: var(--mode-two-spacing-md);
   min-width: 260px;
-  width: 100%;
   width: 100%;
   min-height: 160px;
   flex-shrink: 0;
@@ -553,7 +539,6 @@
   flex-direction: column;
   gap: var(--mode-two-spacing-md);
   min-width: 260px;
-  width: 100%;
   width: 100%;
   min-height: 140px;
   flex-shrink: 0;
@@ -733,6 +718,5 @@
   --mode-two-shadow-sm: 0 1px 2px rgba(4, 6, 14, 0.6);
   --mode-two-shadow-inner: inset 0 2px 4px rgba(4, 6, 14, 0.6);
 }
-
 
 
