@@ -20,13 +20,16 @@
     "@writetogether/schema": "file:../../packages/schema",
     "@writetogether/ui": "file:../../packages/ui",
     "clsx": "^2.1.0",
+    "html-to-pdfmake": "^2.2.1",
+    "pdfmake": "^0.2.7",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.3",
-    "zustand": "^4.4.7",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
+    "@types/pdfmake": "^0.2.8",
     "@types/react": "^18.2.64",
     "@types/react-dom": "^18.2.21",
     "@typescript-eslint/eslint-plugin": "^7.1.1",

@@ -25,6 +25,15 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import TextStyle from "@tiptap/extension-text-style";
 import Placeholder from "@tiptap/extension-placeholder";
+import pdfMake from "pdfmake/build/pdfmake";
+import pdfFonts from "pdfmake/build/vfs_fonts";
+import htmlToPdfmake from "html-to-pdfmake";
+import type { TDocumentDefinitions } from "pdfmake/interfaces";
+
+// pdfMake requires the virtual file system to load fonts in the browser bundle.
+const pdfMakeWithVfs = pdfMake as typeof pdfMake & { vfs?: Record<string, string> };
+const pdfFontsVfs = (pdfFonts as unknown) as Record<string, string>;
+pdfMakeWithVfs.vfs = pdfFontsVfs;
 
 // Mode 2 offers a click-to-compose drafting space with adaptive templates and export hooks.
 type TopicFilter = "all" | ModeTwoBank["topic"];
@@ -127,6 +136,89 @@ const fontOptions = ["Arial", "Century Gothic", "Calibri", "Helvetica", "Verdana
 
 type WorkspaceTheme = "standard" | "dyslexia" | "high-contrast" | "dark";
 
+type FilePickerWindow = Window & typeof globalThis & {
+  showSaveFilePicker?: (
+    options?: {
+      suggestedName?: string;
+      types?: Array<{
+        description?: string;
+        accept: Record<string, string[]>;
+      }>;
+    },
+  ) => Promise<{
+    name: string;
+    createWritable: () => Promise<{
+      write: (data: Blob | BufferSource | string) => Promise<void>;
+      close: () => Promise<void>;
+    }>;
+  }>;
+};
+
+const usernameStorageKey = "writetogether-current-username";
+const defaultUsername = "Preview Pupil";
+
+const resolveUsername = () => {
+  if (typeof window === "undefined") {
+    return defaultUsername;
+  }
+  try {
+    const stored = window.localStorage.getItem(usernameStorageKey);
+    if (!stored) {
+      return defaultUsername;
+    }
+    return stored.trim() || defaultUsername;
+  } catch {
+    return defaultUsername;
+  }
+};
+
+const blobToDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read blob"));
+    reader.readAsDataURL(blob);
+  });
+
+const escapeHtml = (value: string) =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const sanitizeForPdf = (html: string) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  doc.body.querySelectorAll("*").forEach((element) => {
+    element.removeAttribute("style");
+  });
+  return doc.body.innerHTML || "";
+};
+
+const triggerDownload = (blobUrl: string, filename: string) => {
+  const anchor = document.createElement("a");
+  anchor.href = blobUrl;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+};
+
+const generatePdfBlob = (definition: TDocumentDefinitions) =>
+  new Promise<Blob>((resolve, reject) => {
+    try {
+      const generator = pdfMake.createPdf(definition);
+      generator.getBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error("Failed to produce PDF blob"));
+        }
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+
 const themeOptions: Array<{ value: WorkspaceTheme; label: string }> = [
   { value: "standard", label: "Standard" },
   { value: "dyslexia", label: "Dyslexia-friendly" },
@@ -191,6 +283,7 @@ const ModeTwoWorkspace = () => {
 
   const assignments = useTeacherStore((state) => state.assignments);
   const libraryWordBanks = useTeacherStore((state) => state.wordBanks);
+  const addSharedFile = useTeacherStore((state) => state.addSharedFile);
   const { canSpeak, isSpeaking, speak, stop, voices } = useSpeechSynthesis({
     locale: "en-gb",
   });
@@ -590,31 +683,176 @@ const ModeTwoWorkspace = () => {
   };
 
   const handleExportPreview = async () => {
-    if (!plainText.trim()) {
+    const trimmedContent = plainText.trim();
+    if (!trimmedContent) {
       return;
     }
-    const apiBase = import.meta.env.VITE_API_BASE ?? "http://localhost:4000/api";
     setExportState("loading");
     setExportMessage("");
+    const typedWindow = window as FilePickerWindow;
+    let shouldRefocus = false;
     try {
-      const response = await fetch(`${apiBase}/exports/preview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: plainText }),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to queue export");
+      const now = new Date();
+      const defaultNameSeed = now.toISOString().replace(/[:]/g, "-").replace("T", "_").slice(0, 16);
+      const suggestedName = `ModeTwo_${defaultNameSeed}.pdf`;
+      let resolvedFilename = suggestedName;
+      let fileHandle: Awaited<ReturnType<NonNullable<FilePickerWindow["showSaveFilePicker"]>>> | null =
+        null;
+
+      if (typedWindow.showSaveFilePicker) {
+        try {
+          fileHandle = await typedWindow.showSaveFilePicker({
+            suggestedName,
+            types: [
+              {
+                description: "PDF document",
+                accept: { "application/pdf": [".pdf"] },
+              },
+            ],
+          });
+          const handleNameRaw = fileHandle.name;
+          const handleName = handleNameRaw.toLowerCase().endsWith(".pdf")
+            ? handleNameRaw
+            : `${handleNameRaw}.pdf`;
+          resolvedFilename = handleName;
+        } catch (pickerError) {
+          const isAbort =
+            pickerError instanceof DOMException && pickerError.name === "AbortError";
+          if (isAbort) {
+            setExportState("idle");
+            setExportMessage("Export cancelled.");
+            return;
+          }
+        }
       }
-      const payload = await response.json();
+
+      shouldRefocus = editor?.isFocused ?? false;
+      editor?.commands.blur();
+
+      const username = resolveUsername();
+      const horizontalMargin = 48;
+      const verticalMargin = 48;
+      const exportHtml = (editor?.getHTML() ?? draftHtml).trim();
+      const fallbackHtml =
+        trimmedContent
+          .split(/\n{2,}/)
+          .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
+          .join("") || "<p>&nbsp;</p>";
+      const sanitizedHtml = sanitizeForPdf(exportHtml || fallbackHtml);
+      const pdfContentNodes = htmlToPdfmake(`<div>${sanitizedHtml}</div>`, { window });
+      const bodyContent = Array.isArray(pdfContentNodes) ? pdfContentNodes : [pdfContentNodes];
+      const wordCount = trimmedContent.split(/\s+/).length;
+      const headingTitle = resolvedFilename.replace(/\.pdf$/i, "");
+
+      const docDefinition: TDocumentDefinitions = {
+        info: {
+          title: headingTitle,
+          author: username,
+        },
+        pageMargins: [horizontalMargin, verticalMargin, horizontalMargin, verticalMargin],
+        defaultStyle: {
+          fontSize: 11,
+          lineHeight: 1.5,
+        },
+        styles: {
+          exportTitle: {
+            fontSize: 18,
+            bold: true,
+            margin: [0, 0, 0, 8],
+          },
+          exportMetaGroup: {
+            margin: [0, 0, 0, 12],
+          },
+          exportMeta: {
+            fontSize: 10,
+            color: "#475569",
+            margin: [0, 0, 0, 2],
+          },
+          exportFooter: {
+            fontSize: 9,
+            color: "#64748b",
+          },
+        },
+        content: [
+          { text: headingTitle, style: "exportTitle" },
+          {
+            stack: [
+              { text: `Author: ${username}`, style: "exportMeta" },
+              { text: `Saved: ${now.toLocaleString()}`, style: "exportMeta" },
+              { text: `Word count: ${wordCount}`, style: "exportMeta" },
+            ],
+            style: "exportMetaGroup",
+          },
+          { text: "", margin: [0, 4, 0, 4] },
+          ...bodyContent,
+        ],
+        footer: (currentPage, pageCount) => ({
+          margin: [horizontalMargin, 12, horizontalMargin, 0],
+          columns: [
+            { text: "", width: "*" },
+            {
+              text: `Page ${currentPage} of ${pageCount}`,
+              alignment: "right",
+              style: "exportFooter",
+            },
+          ],
+        }),
+      };
+
+      const pdfBlob = await generatePdfBlob(docDefinition);
+      let savedLocation = "Downloaded";
+      let downloadUrl: string | null = null;
+      let fileWritten = false;
+
+      if (fileHandle) {
+        try {
+          const writable = await fileHandle.createWritable();
+          await writable.write(pdfBlob);
+          await writable.close();
+          savedLocation = `File picker (${resolvedFilename})`;
+          fileWritten = true;
+        } catch {
+          fileWritten = false;
+        }
+      }
+
+      if (!fileWritten) {
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        downloadUrl = blobUrl;
+        triggerDownload(blobUrl, resolvedFilename);
+        savedLocation = "Downloaded";
+      }
+
+      const pdfDataUrl = await blobToDataUrl(pdfBlob);
+
+      addSharedFile({
+        filename: resolvedFilename,
+        username,
+        savedAt: now.toISOString(),
+        location: savedLocation,
+        sizeBytes: pdfBlob.size,
+        wordCount,
+        dataUrl: pdfDataUrl,
+      });
+
+      if (downloadUrl) {
+        window.setTimeout(() => {
+          URL.revokeObjectURL(downloadUrl);
+        }, 1500);
+      }
+
       setExportState("success");
-      setExportMessage(
-        `Queued export (${payload.wordCount} words). Check the teacher console for the download link.`,
-      );
-    } catch {
+      setExportMessage(`Saved and shared ${resolvedFilename}.`);
+    } catch (error) {
+      console.error(error);
       setExportState("error");
-      setExportMessage(
-        "Export service unavailable. Is the API server running on port 4000?",
-      );
+      setExportMessage("Export failed. Please try again.");
+    } finally {
+      if (shouldRefocus) {
+        window.setTimeout(() => {
+          editor?.commands.focus("end");
+        }, 50);
+      }
     }
   };
 
@@ -1033,7 +1271,7 @@ const ModeTwoWorkspace = () => {
               ? exportMessage
               : exportState === "error"
                 ? exportMessage
-                : "Exports appear in the teacher console once prepared."}
+                : "Exports save locally and synchronise with the teacher console instantly."}
           </span>
         </div>
       }

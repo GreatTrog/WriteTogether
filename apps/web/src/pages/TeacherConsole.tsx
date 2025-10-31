@@ -3,6 +3,7 @@ import ClassesPanel from "../sections/teacher/ClassesPanel";
 import WordBanksPanel from "../sections/teacher/WordBanksPanel";
 import AssignmentsPanel from "../sections/teacher/AssignmentsPanel";
 import AnalyticsPanel from "../sections/teacher/AnalyticsPanel";
+import SharedFilesPanel from "../sections/teacher/SharedFilesPanel";
 
 // Secondary nav mirrors the teacher workflow areas surfaced in Phase 1.
 const sections = [
@@ -10,6 +11,7 @@ const sections = [
   { path: "classes", label: "Classes & Pupils" },
   { path: "assignments", label: "Assignments" },
   { path: "banks", label: "Word Banks" },
+  { path: "shared-files", label: "Shared Files" },
   { path: "analytics", label: "Analytics" },
 ];
 
@@ -66,6 +68,7 @@ const TeacherConsole = () => {
           <Route path="classes" element={<ClassesPanel />} />
           <Route path="assignments" element={<AssignmentsPanel />} />
           <Route path="banks" element={<WordBanksPanel />} />
+          <Route path="shared-files" element={<SharedFilesPanel />} />
           <Route path="analytics" element={<AnalyticsPanel />} />
         </Routes>
       </section>
