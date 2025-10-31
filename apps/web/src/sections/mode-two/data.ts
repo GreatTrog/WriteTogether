@@ -1,66 +1,89 @@
 import type { WordBank } from "@writetogether/schema";
 
-export type ModeTwoBank = WordBank & {
-  category: "nouns" | "verbs" | "adjectives" | "adverbials" | "connectives" | "starters";
-  topic: string;
+export const CORE_WORD_CLASS_KEYS = [
+  "nouns",
+  "verbs",
+  "adjectives",
+  "adverbials",
+  "connectives",
+  "starters",
+] as const;
+
+export type CoreWordClass = (typeof CORE_WORD_CLASS_KEYS)[number];
+
+export const CORE_WORD_CLASS_LABELS: Record<CoreWordClass, string> = {
+  nouns: "Nouns",
+  verbs: "Verbs",
+  adjectives: "Adjectives",
+  adverbials: "Adverbials",
+  connectives: "Connectives",
+  starters: "Sentence Starters",
 };
 
+// Demo bank definitions consumed by Mode 2 and the teacher console.
+export type ModeTwoBank = WordBank & {
+  category: string;
+  topic: string;
+  categoryLabel?: string;
+};
+
+// Samples touch each grammar category so assignment templates feel rich.
 export const modeTwoBanks: ModeTwoBank[] = [
   {
-    id: "bank-nouns-antarctica",
-    title: "Antarctica Nouns",
-    description: "People, places and objects linked to Shackleton",
+    id: "bank-nouns-topic",
+    title: "Topic Nouns",
+    description: "Key people, places and objects linked to the current class topic",
     level: "lks2",
-    tags: ["topic:antarctica", "grammar:noun"],
+    tags: ["topic:current", "grammar:noun"],
     colourMap: undefined,
     category: "nouns",
-    topic: "Antarctica",
+    topic: "Current Topic",
     items: [
-      { id: "n1", text: "iceberg", tags: ["tier:2"] },
-      { id: "n2", text: "pack ice", tags: ["tier:2"] },
-      { id: "n3", text: "crew", tags: ["tier:1"] },
-      { id: "n4", text: "sled dogs", tags: ["tier:2"] },
-      { id: "n5", text: "expedition", tags: ["tier:1"] },
-      { id: "n6", text: "lifeboat", tags: ["tier:1"] },
-      { id: "n7", text: "Endurance", tags: ["proper"] },
-      { id: "n8", text: "Aurora Australis", tags: ["proper"] },
+      { id: "n1", text: "innovator", tags: ["tier:2"] },
+      { id: "n2", text: "blueprint", tags: ["tier:2"] },
+      { id: "n3", text: "prototype", tags: ["tier:1"] },
+      { id: "n4", text: "workshop", tags: ["tier:1"] },
+      { id: "n5", text: "team", tags: ["tier:1"] },
+      { id: "n6", text: "experiment", tags: ["tier:1"] },
+      { id: "n7", text: "solution", tags: ["tier:1"] },
+      { id: "n8", text: "audience", tags: ["tier:1"] },
     ],
   },
   {
-    id: "bank-verbs-antarctica",
-    title: "Antarctica Verbs",
-    description: "Action verbs for polar exploration narratives",
+    id: "bank-verbs-topic",
+    title: "Topic Verbs",
+    description: "Action verbs pupils can apply to this term's project work",
     level: "lks2",
-    tags: ["topic:antarctica", "grammar:verb"],
+    tags: ["topic:current", "grammar:verb"],
     colourMap: undefined,
     category: "verbs",
-    topic: "Antarctica",
+    topic: "Current Topic",
     items: [
-      { id: "v1", text: "navigated" },
-      { id: "v2", text: "hauled" },
-      { id: "v3", text: "chopped" },
-      { id: "v4", text: "secured" },
-      { id: "v5", text: "withstood" },
-      { id: "v6", text: "signalled" },
-      { id: "v7", text: "encouraged" },
+      { id: "v1", text: "designed" },
+      { id: "v2", text: "tested" },
+      { id: "v3", text: "assembled" },
+      { id: "v4", text: "refined" },
+      { id: "v5", text: "presented" },
+      { id: "v6", text: "evaluated" },
+      { id: "v7", text: "celebrated" },
     ],
   },
   {
-    id: "bank-adjectives-antarctica",
-    title: "Antarctica Adjectives",
-    description: "Adjectives to add detail and texture",
+    id: "bank-adjectives-topic",
+    title: "Topic Adjectives",
+    description: "Adjectives to add colour and detail to the current focus",
     level: "lks2",
-    tags: ["topic:antarctica", "grammar:adjective"],
+    tags: ["topic:current", "grammar:adjective"],
     colourMap: undefined,
     category: "adjectives",
-    topic: "Antarctica",
+    topic: "Current Topic",
     items: [
-      { id: "a1", text: "bitter" },
-      { id: "a2", text: "glacial" },
-      { id: "a3", text: "treacherous" },
-      { id: "a4", text: "courageous" },
-      { id: "a5", text: "unyielding" },
-      { id: "a6", text: "snow-laden" },
+      { id: "a1", text: "imaginative" },
+      { id: "a2", text: "resourceful" },
+      { id: "a3", text: "collaborative" },
+      { id: "a4", text: "vibrant" },
+      { id: "a5", text: "detailed" },
+      { id: "a6", text: "resilient" },
     ],
   },
   {

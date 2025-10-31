@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@tiptap/extension-placeholder": "^2.2.4",
+    "@tiptap/extension-text-style": "^2.2.4",
+    "@tiptap/extension-underline": "^2.2.4",
     "@tiptap/react": "^2.2.4",
     "@tiptap/starter-kit": "^2.2.4",
     "@writetogether/analytics": "file:../../packages/analytics",
@@ -38,6 +40,7 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
     "vite": "^5.1.6",
+    "vite-tsconfig-paths": "^4.3.2",
     "vitest": "^1.3.1"
   }
 }

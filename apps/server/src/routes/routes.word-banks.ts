@@ -2,6 +2,8 @@ import { Router } from "express";
 
 const wordBanksRouter = Router();
 
+// Placeholder endpoints keep the contract visible while the data layer is built.
+
 wordBanksRouter.get("/", (_req, res) => {
   res.json({ wordBanks: [] });
 });

@@ -1,4 +1,4 @@
-﻿import { FormEvent, useState } from "react";
+import { FormEvent, useState } from "react";
 
 import { useTeacherStore } from "../../store/useTeacherStore";
 
@@ -8,6 +8,7 @@ const classPhases = [
   { label: "UKS2", value: "UKS2" },
 ];
 
+// Lightweight CRM for the pilot so teachers can trial roster flows.
 const ClassesPanel = () => {
   const { classes, createClass, addPupil } = useTeacherStore();
 
@@ -17,6 +18,7 @@ const ClassesPanel = () => {
   const [support, setSupport] = useState("");
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
 
+  // Quick helper for adding a showcase class with minimal validation.
   const handleCreateClass = (event: FormEvent) => {
     event.preventDefault();
     if (!className.trim()) {
@@ -27,6 +29,7 @@ const ClassesPanel = () => {
     setClassName("");
   };
 
+  // Mirrors the live product flow where teachers capture pupil needs on the fly.
   const handleAddPupil = (event: FormEvent) => {
     event.preventDefault();
     if (!selectedClass || !pupilName.trim()) {

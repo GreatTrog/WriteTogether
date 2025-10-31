@@ -1,3 +1,4 @@
+// Overview cards give stakeholders a quick tour of the MVP scope.
 const LandingPage = () => {
   return (
     <div className="space-y-6">

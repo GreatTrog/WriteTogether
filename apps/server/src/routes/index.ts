@@ -8,6 +8,9 @@ import exportsRouter from "./routes.exports";
 
 const router = Router();
 
+// Bundle placeholder routes so the client can explore API structure.
+
+// Basic index helps manual testers discover available endpoints.
 router.get("/", (_req, res) => {
   res.json({
     message: "WriteTogether API v0",

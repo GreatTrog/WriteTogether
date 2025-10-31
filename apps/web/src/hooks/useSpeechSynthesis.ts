@@ -9,6 +9,8 @@ type SpeechOptions = {
 const supportsSpeech = () =>
   typeof window !== "undefined" && "speechSynthesis" in window;
 
+// Wrap the Web Speech API so components can toggle playback, monitor status,
+// and pick the best available voice for the given locale.
 const useSpeechSynthesis = (options?: { locale?: string }) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -21,6 +23,7 @@ const useSpeechSynthesis = (options?: { locale?: string }) => {
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
+    // Browser voice registry loads asynchronously; listen once and cache results.
     if (!supportsSpeech()) {
       return;
     }
@@ -41,6 +44,7 @@ const useSpeechSynthesis = (options?: { locale?: string }) => {
   }, []);
 
   useEffect(() => {
+    // Track online/offline state so we can prefer locally cached voices offline.
     if (typeof window === "undefined") {
       return;
     }
@@ -55,6 +59,7 @@ const useSpeechSynthesis = (options?: { locale?: string }) => {
   }, []);
 
   const speak = useCallback((text: string, options?: SpeechOptions) => {
+    // Cancel any existing utterance so new playback always starts cleanly.
     if (!supportsSpeech()) {
       return false;
     }
@@ -88,6 +93,7 @@ const useSpeechSynthesis = (options?: { locale?: string }) => {
   }, []);
 
   const preferredVoices = useMemo(() => {
+    // Filter and sort voices each time the locale or connectivity shifts.
     if (voices.length === 0) {
       return [];
     }

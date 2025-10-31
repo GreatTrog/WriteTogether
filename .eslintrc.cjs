@@ -1,3 +1,5 @@
+const path = require("path");
+
 module.exports = {
   root: true,
   env: {
@@ -7,7 +9,12 @@ module.exports = {
   },
   parser: "@typescript-eslint/parser",
   parserOptions: {
-    project: ["./tsconfig.base.json"],
+    tsconfigRootDir: __dirname,
+    project: [
+      path.resolve(__dirname, "tsconfig.base.json"),
+      path.resolve(__dirname, "apps/*/tsconfig.json"),
+      path.resolve(__dirname, "packages/*/tsconfig.json"),
+    ],
     sourceType: "module",
   },
   plugins: ["@typescript-eslint", "react-refresh", "react-hooks"],

@@ -6,17 +6,20 @@ import { useTeacherStore } from "../../store/useTeacherStore";
 
 const draftStorageKey = "writetogether-mode2-draft";
 
+// Converts the mock store into insight tiles for the preview dashboard.
 const AnalyticsPanel = () => {
   const { classes, assignments } = useTeacherStore();
   const [currentDraftWords, setCurrentDraftWords] = useState(0);
 
   useEffect(() => {
+    // Check the Mode 2 draft cache to simulate a live writing signal.
     const draft = window.localStorage.getItem(draftStorageKey) ?? "";
     const words = draft.trim().match(/\b[a-zA-Z']+\b/g)?.length ?? 0;
     setCurrentDraftWords(words);
   }, []);
 
   const totals = useMemo(() => {
+    // Roll up high-level stats so tiles stay fast even as data grows.
     const pupilCount = classes.reduce(
       (sum, group) => sum + group.pupils.length,
       0,
@@ -67,6 +70,7 @@ const AnalyticsPanel = () => {
   }, [classes, assignments]);
 
   const timeline = useMemo(() => {
+    // Build a rolling average so the simple chart reads like a trend.
     const data = assignments.map((assignment) => ({
       timestamp: assignment.dueAt
         ? new Date(assignment.dueAt).toISOString()
@@ -78,6 +82,7 @@ const AnalyticsPanel = () => {
   }, [assignments]);
 
   const upcoming = useMemo(() => {
+    // Flag near-term deadlines to drive teacher actions during testing.
     const now = Date.now();
     const weekAhead = now + 1000 * 60 * 60 * 24 * 7;
     return assignments

@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import WorkspaceLayout from "../../layouts/WorkspaceLayout";
 import useSpeechSynthesis from "../../hooks/useSpeechSynthesis";
-import type { ModeTwoBank } from "./data";
-import { useTeacherStore } from "../../store/useTeacherStore";
 import {
-  textTypeLabel,
-  type WordBankSnapshot,
-} from "../../services/wordBankCatalog";
+  CORE_WORD_CLASS_KEYS,
+  CORE_WORD_CLASS_LABELS,
+  type CoreWordClass,
+  type ModeTwoBank,
+} from "./data";
+import { useTeacherStore } from "../../store/useTeacherStore";
+import { type WordBankSnapshot } from "../../services/wordBankCatalog";
 import "./ModeTwoWorkspace.css";
 import iconBold from "../../assets/icons/Bold.svg";
 import iconItalic from "../../assets/icons/Italics.svg";
@@ -16,13 +17,23 @@ import iconFontDecrease from "../../assets/icons/Font_size_down.svg";
 import iconFontIncrease from "../../assets/icons/Font_size_up.svg";
 import iconListBullets from "../../assets/icons/Bullets.svg";
 import iconListNumbered from "../../assets/icons/Numbered_Bullets.svg";
+import clsx from "clsx";
+import { useGlobalMenu } from "../../components/GlobalMenu";
+import VoiceRecorderControls from "../../components/VoiceRecorderControls";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import TextStyle from "@tiptap/extension-text-style";
+import Placeholder from "@tiptap/extension-placeholder";
 
+// Mode 2 offers a click-to-compose drafting space with adaptive templates and export hooks.
 type TopicFilter = "all" | ModeTwoBank["topic"];
 
 const draftStorageKey = "writetogether-mode2-draft";
 const themeStorageKey = "writetogether-mode2-theme";
 
-const headingCategoryMap: Record<string, ModeTwoBank["category"]> = {
+// Map fuzzy heading labels from catalog imports into the classroom categories.
+const headingCategoryMap: Record<string, CoreWordClass> = {
   noun: "nouns",
   nouns: "nouns",
   verb: "verbs",
@@ -46,22 +57,70 @@ const headingCategoryMap: Record<string, ModeTwoBank["category"]> = {
 const normaliseHeadingLabel = (label: string) =>
   label.toLowerCase().replace(/[^a-z]/g, "");
 
-const categoryOrder: readonly ModeTwoBank["category"][] = [
-  "nouns",
-  "verbs",
-  "adjectives",
-  "adverbials",
-  "connectives",
-  "starters",
-];
+const canonicalCategoryOrder = CORE_WORD_CLASS_KEYS;
+const canonicalCategoryWeight = canonicalCategoryOrder.reduce<Record<string, number>>(
+  (acc, key, index) => {
+    acc[key] = index;
+    return acc;
+  },
+  {},
+);
 
-const categoryLabels: Record<ModeTwoBank["category"], string> = {
-  nouns: "Nouns",
-  verbs: "Verbs",
-  adjectives: "Adjectives",
-  adverbials: "Adverbials",
-  connectives: "Connectives",
-  starters: "Sentence Starters",
+const ADDITIONAL_CATEGORY_KEY = "additional";
+const ADDITIONAL_CATEGORY_LABEL = "Additional Words";
+
+const formatCategoryLabel = (label: string) => {
+  const trimmed = label.trim();
+  if (!trimmed) {
+    return ADDITIONAL_CATEGORY_LABEL;
+  }
+  return trimmed;
+};
+
+type CategoryMeta = {
+  key: string;
+  label: string;
+  order: number;
+};
+
+const resolveHeadingCategory = (headingLabel: string): CategoryMeta => {
+  const normalised = normaliseHeadingLabel(headingLabel);
+  const canonicalKey = headingCategoryMap[normalised];
+  if (canonicalKey) {
+    return {
+      key: canonicalKey,
+      label: CORE_WORD_CLASS_LABELS[canonicalKey],
+      order: canonicalCategoryWeight[canonicalKey],
+    };
+  }
+
+  const key = normalised.length > 0 ? normalised : ADDITIONAL_CATEGORY_KEY;
+  return {
+    key,
+    label: formatCategoryLabel(headingLabel),
+    order: canonicalCategoryOrder.length,
+  };
+};
+
+const resolveCategoryMeta = (
+  categoryKey: string,
+  explicitLabel?: string,
+): CategoryMeta => {
+  if (Object.prototype.hasOwnProperty.call(canonicalCategoryWeight, categoryKey)) {
+    const typedKey = categoryKey as CoreWordClass;
+    return {
+      key: categoryKey,
+      label: CORE_WORD_CLASS_LABELS[typedKey],
+      order: canonicalCategoryWeight[typedKey],
+    };
+  }
+
+  const label = formatCategoryLabel(explicitLabel ?? categoryKey);
+  return {
+    key: categoryKey,
+    label,
+    order: canonicalCategoryOrder.length,
+  };
 };
 
 const fontOptions = ["Arial", "Century Gothic", "Calibri", "Helvetica", "Verdana"];
@@ -112,43 +171,8 @@ const resolveTopicFromSnapshot = (snapshot: WordBankSnapshot): string => {
   return snapshot.fileName.replace(/\.txt$/, "").replace(/[_-]+/g, " ").trim();
 };
 
-type AnalysisResult = {
-  missingCapital: boolean;
-  missingPunctuation: boolean;
-  readingLevel: number;
-};
-
-const analyseText = (text: string): AnalysisResult => {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return {
-      missingCapital: false,
-      missingPunctuation: false,
-      readingLevel: 0,
-    };
-  }
-
-  const sentences = trimmed
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
-
-  const missingCapital = sentences.some(
-    (sentence) => sentence.length > 0 && !/^[A-Z]/.test(sentence),
-  );
-  const missingPunctuation = sentences.length > 0 && !/[.!?]$/.test(trimmed);
-
-  const averageSentenceLength =
-    sentences.length > 0 ? trimmed.length / sentences.length : trimmed.length;
-
-  return {
-    missingCapital,
-    missingPunctuation,
-    readingLevel: Number(averageSentenceLength.toFixed(1)),
-  };
-};
-
 const ModeTwoWorkspace = () => {
+  // Hydrate state from localStorage so drafts, theme, and filters survive reloads.
   const [topicFilter, setTopicFilter] = useState<TopicFilter>("all");
   const [sortMode, setSortMode] = useState<"class" | "alphabetical">("class");
   const [draftHtml, setDraftHtml] = useState<string>(() => {
@@ -167,15 +191,33 @@ const ModeTwoWorkspace = () => {
 
   const assignments = useTeacherStore((state) => state.assignments);
   const libraryWordBanks = useTeacherStore((state) => state.wordBanks);
-
-  const draftRef = useRef<HTMLDivElement | null>(null);
-  const savedRangeRef = useRef<Range | null>(null);
   const { canSpeak, isSpeaking, speak, stop, voices } = useSpeechSynthesis({
     locale: "en-gb",
   });
   const [voiceIndex, setVoiceIndex] = useState(0);
   const hasManualVoiceSelection = useRef(false);
   const hasLoadedTheme = useRef(false);
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit.configure({
+          bulletList: { keepMarks: true, keepAttributes: true },
+          orderedList: { keepMarks: true, keepAttributes: true },
+        }),
+        Underline,
+        TextStyle,
+        Placeholder.configure({
+          placeholder: "Start your draft...",
+        }),
+      ],
+      content: draftHtml ? draftHtml : "<p></p>",
+      onUpdate: ({ editor }) => {
+        const nextHtml = editor.isEmpty ? "" : editor.getHTML();
+        setDraftHtml((current) => (current === nextHtml ? current : nextHtml));
+      },
+    },
+    [],
+  );
 
   const plainText = useMemo(() => {
     if (!draftHtml) {
@@ -188,6 +230,21 @@ const ModeTwoWorkspace = () => {
     container.innerHTML = draftHtml;
   return (container.textContent ?? "").replace(/\u00a0/g, " ");
   }, [draftHtml]);
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+    const targetHtml = draftHtml === "" ? "<p></p>" : draftHtml;
+    const currentHtml = editor.getHTML();
+    if (draftHtml === "" && editor.isEmpty) {
+      return;
+    }
+    if (currentHtml === targetHtml) {
+      return;
+    }
+    editor.commands.setContent(targetHtml, false);
+  }, [editor, draftHtml]);
 
   useEffect(() => {
     if (!voices.length) {
@@ -248,16 +305,6 @@ const ModeTwoWorkspace = () => {
   return () => window.clearTimeout(id);
   }, [draftHtml]);
 
-  useEffect(() => {
-    const node = draftRef.current;
-    if (!node) {
-      return;
-    }
-    if (node.innerHTML !== draftHtml) {
-      node.innerHTML = draftHtml || "";
-    }
-  }, [draftHtml]);
-
   const activeAssignment = useMemo(() => {
     const modeTwoAssignments = assignments.filter(
       (assignment) => assignment.modeLock !== "mode1",
@@ -268,7 +315,10 @@ const ModeTwoWorkspace = () => {
     return published ?? modeTwoAssignments[0] ?? null;
   }, [assignments]);
 
-  const activeWordBankIds = activeAssignment?.wordBankIds ?? [];
+  const activeWordBankIds = useMemo(
+    () => activeAssignment?.wordBankIds ?? [],
+    [activeAssignment],
+  );
 
   const assignedCatalogBanks = useMemo(() => {
     if (!activeAssignment) {
@@ -287,51 +337,25 @@ const ModeTwoWorkspace = () => {
         (entry): entry is { id: string; snapshot: WordBankSnapshot } =>
           Boolean(entry),
       );
-  }, [activeAssignment]);
-
-  const assignedLibraryBanks = useMemo(() => {
-    if (!activeAssignment) {
-      return [];
-    }
-    return activeWordBankIds
-      .map((id) => libraryWordBanks.find((bank) => bank.id === id))
-      .filter((bank): bank is ModeTwoBank => Boolean(bank));
-  }, [activeAssignment, libraryWordBanks, activeWordBankIds]);
-
-  const assignmentDueDate = activeAssignment?.dueAt
-    ? new Date(activeAssignment.dueAt)
-    : null;
-  const assignmentBankCount = activeWordBankIds.length;
-
-  const topicFilterLabel =
-    topicFilter === "all"
-      ? "All topics"
-      : topicFilter.charAt(0).toUpperCase() + topicFilter.slice(1);
-  const sortLabel =
-    sortMode === "class" ? "Word class view" : "Alphabetical view";
+  }, [activeAssignment, activeWordBankIds]);
 
   const themeClassName = theme === "standard" ? "" : `mode-two-theme-${theme}`;
-  const themedClass = (base: string) =>
-    themeClassName ? `${base} ${themeClassName}` : base;
+  const themedClass = useCallback(
+    (base: string) => (themeClassName ? `${base} ${themeClassName}` : base),
+    [themeClassName],
+  );
 
   const catalogCategoryBanks = useMemo<ModeTwoBank[]>(() => {
     if (assignedCatalogBanks.length === 0) {
       return [];
     }
 
-    return assignedCatalogBanks
-      .flatMap(({ snapshot }) => {
+    return assignedCatalogBanks.flatMap(({ snapshot }) => {
         const topic = resolveTopicFromSnapshot(snapshot);
         const level = resolveLevelFromYear(snapshot.meta.year);
 
         return snapshot.headings.map((heading, headingIndex) => {
-          const category =
-            headingCategoryMap[normaliseHeadingLabel(heading.label)];
-
-          if (!category) {
-            return null;
-          }
-
+          const categoryMeta = resolveHeadingCategory(heading.label);
           const bankId = `catalog::${snapshot.id}::${headingIndex}`;
           const title =
             heading.label.trim().length > 0
@@ -349,7 +373,8 @@ const ModeTwoWorkspace = () => {
               `topic:${topic.toLowerCase().replace(/\s+/g, "-")}`,
             ],
             colourMap: undefined,
-            category,
+            category: categoryMeta.key,
+            categoryLabel: categoryMeta.label,
             topic,
             items: heading.items.map((item, itemIndex) => ({
               id: `${bankId}::${itemIndex}`,
@@ -361,8 +386,7 @@ const ModeTwoWorkspace = () => {
             })),
           } as ModeTwoBank;
         });
-      })
-      .filter((bank): bank is ModeTwoBank => Boolean(bank));
+      });
   }, [assignedCatalogBanks]);
 
   const allCategoryBanks = useMemo(() => {
@@ -393,26 +417,48 @@ const ModeTwoWorkspace = () => {
     });
   }, [allCategoryBanks, topicFilter]);
 
-  const groupedByCategory = useMemo(() => {
-    return filteredBanks.reduce<
-      Record<ModeTwoBank["category"], ModeTwoBank[]>
-    >(
-      (acc, bank) => {
-        acc[bank.category].push(bank);
-        return acc;
-      },
-      {
-        nouns: [],
-        verbs: [],
-        adjectives: [],
-        adverbials: [],
-        connectives: [],
-        starters: [],
-      },
-    );
+  const groupedCategories = useMemo(() => {
+    // Re-shape stored banks so each toolbar tab renders instantly.
+    const map = new Map<string, { label: string; order: number; banks: ModeTwoBank[] }>();
+
+    filteredBanks.forEach((bank) => {
+      const meta = resolveCategoryMeta(bank.category, bank.categoryLabel);
+      const existing = map.get(meta.key);
+      if (existing) {
+        existing.banks.push(bank);
+        return;
+      }
+      map.set(meta.key, { label: meta.label, order: meta.order, banks: [bank] });
+    });
+
+    const result = Array.from(map.entries())
+      .map(([key, value]) => ({
+        key,
+        label: value.label,
+        order: value.order,
+        banks: value.banks,
+      }))
+      .sort((a, b) => {
+        if (a.order !== b.order) {
+          return a.order - b.order;
+        }
+        return a.label.localeCompare(b.label);
+      });
+
+    if (result.length === 0) {
+      return canonicalCategoryOrder.map((key) => ({
+        key,
+        label: CORE_WORD_CLASS_LABELS[key],
+        order: canonicalCategoryWeight[key],
+        banks: [],
+      }));
+    }
+
+    return result;
   }, [filteredBanks]);
 
   const alphabeticalBuckets = useMemo<AlphabeticalBucket[]>(() => {
+    // Provide an alternative alphabetical browse when teachers prefer long lists.
     const bucketMap = new Map<string, AlphabeticalBucket>();
 
     filteredBanks.forEach((bank) => {
@@ -455,11 +501,20 @@ const ModeTwoWorkspace = () => {
       });
   }, [filteredBanks]);
 
-  const analysis = useMemo(() => analyseText(plainText), [plainText]);
 
   const handleInsertToken = (token: string) => {
+    if (!editor) {
+      return;
+    }
     const insertion = token.endsWith(" ") ? token : `${token} `;
-    insertTextAtSelection(insertion);
+    editor
+      .chain()
+      .focus()
+      .insertContent({
+        type: "text",
+        text: insertion,
+      })
+      .run();
   };
 
   const handleSpeakDraft = () => {
@@ -481,189 +536,57 @@ const ModeTwoWorkspace = () => {
   };
 
   const handleClearDraft = () => {
-    setDraftHtml("");
     stop();
-    if (draftRef.current) {
-      draftRef.current.innerHTML = "";
+    if (!editor) {
+      setDraftHtml("");
+      return;
     }
-    savedRangeRef.current = null;
+    editor.chain().focus().clearContent(true).run();
   };
 
   const handleIncreaseFont = () => {
     setFontSize((size) => Math.min(size + 2, 28));
-    saveSelection();
+    editor?.chain().focus().run();
   };
 
   const handleDecreaseFont = () => {
     setFontSize((size) => Math.max(size - 2, 12));
-    saveSelection();
+    editor?.chain().focus().run();
   };
 
-  const saveSelection = () => {
-    if (typeof window === "undefined") {
+  const toggleMark = (mark: "bold" | "italic" | "underline") => {
+    if (!editor) {
       return;
     }
-    const selection = window.getSelection();
-    const editor = draftRef.current;
-    if (!selection || selection.rangeCount === 0 || !editor) {
-      return;
+    const chain = editor.chain().focus();
+    switch (mark) {
+      case "bold":
+        chain.toggleBold().run();
+        break;
+      case "italic":
+        chain.toggleItalic().run();
+        break;
+      case "underline":
+        chain.toggleUnderline().run();
+        break;
     }
-    const range = selection.getRangeAt(0);
-    if (!editor.contains(range.commonAncestorContainer)) {
-      return;
-    }
-    savedRangeRef.current = range.cloneRange();
-  };
-
-  const restoreSelection = () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const selection = window.getSelection();
-    const editor = draftRef.current;
-    if (!selection || !editor) {
-      return;
-    }
-    selection.removeAllRanges();
-    if (savedRangeRef.current) {
-      selection.addRange(savedRangeRef.current);
-    } else {
-      const range = document.createRange();
-      range.selectNodeContents(editor);
-      range.collapse(false);
-      selection.addRange(range);
-      savedRangeRef.current = range.cloneRange();
-    }
-  };
-
-  const focusEditor = () => {
-    const node = draftRef.current;
-    if (!node) {
-      return;
-    }
-    node.focus({ preventScroll: true });
-    restoreSelection();
-  };
-
-  const syncDraftFromDom = () => {
-    const node = draftRef.current;
-    if (!node) {
-      return;
-    }
-    setDraftHtml(node.innerHTML);
-  };
-
-  const execFormattingCommand = (command: string, value?: string) => {
-    if (typeof document === "undefined") {
-      return;
-    }
-    focusEditor();
-    const success = document.execCommand(command, false, value ?? "");
-    if (!success) {
-      syncDraftFromDom();
-    } else {
-      syncDraftFromDom();
-    }
-    saveSelection();
   };
 
   const applyListCommand = (ordered: boolean) => {
-    if (typeof document === "undefined") {
+    if (!editor) {
       return;
     }
-    focusEditor();
-    const command = ordered ? "insertOrderedList" : "insertUnorderedList";
-    const success = document.execCommand(command, false, undefined);
-    if (!success) {
-      const selection = window.getSelection();
-      const editor = draftRef.current;
-      if (!selection || !editor || selection.rangeCount === 0) {
-        return;
-      }
-      const range = selection.getRangeAt(0);
-      const listTag = ordered ? "ol" : "ul";
-      const list = document.createElement(listTag);
-      if (selection.isCollapsed) {
-        const li = document.createElement("li");
-        li.innerHTML = "&nbsp;";
-        list.appendChild(li);
-        range.insertNode(list);
-        const newRange = document.createRange();
-        newRange.selectNodeContents(li);
-        newRange.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-        savedRangeRef.current = newRange.cloneRange();
-      } else {
-        const text = selection
-          .toString()
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean);
-        range.deleteContents();
-        text.forEach((line) => {
-          const li = document.createElement("li");
-          li.textContent = line;
-          list.appendChild(li);
-        });
-        if (!list.childNodes.length) {
-          const li = document.createElement("li");
-          li.innerHTML = "&nbsp;";
-          list.appendChild(li);
-        }
-        range.insertNode(list);
-        selection.removeAllRanges();
-        const newRange = document.createRange();
-        newRange.selectNodeContents(list);
-        selection.addRange(newRange);
-        savedRangeRef.current = newRange.cloneRange();
-      }
+    const chain = editor.chain().focus();
+    if (ordered) {
+      chain.toggleOrderedList().run();
     } else {
-      saveSelection();
+      chain.toggleBulletList().run();
     }
-    syncDraftFromDom();
-    saveSelection();
-  };
-
-  const insertTextAtSelection = (text: string) => {
-    if (typeof document === "undefined") {
-      return;
-    }
-    focusEditor();
-    const success = document.execCommand("insertText", false, text);
-    if (!success) {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        range.deleteContents();
-        range.insertNode(document.createTextNode(text));
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
-        savedRangeRef.current = range.cloneRange();
-      } else if (draftRef.current) {
-        draftRef.current.append(document.createTextNode(text));
-        const range = document.createRange();
-        range.selectNodeContents(draftRef.current);
-        range.collapse(false);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-        savedRangeRef.current = range.cloneRange();
-      }
-    }
-    syncDraftFromDom();
-    saveSelection();
-  };
-
-  const handleEditorInput = (event: FormEvent<HTMLDivElement>) => {
-    setDraftHtml(event.currentTarget.innerHTML);
-    saveSelection();
   };
 
   const handleFontChange = (value: string) => {
     setFontFamily(value);
-    execFormattingCommand("fontName", value);
+    editor?.chain().focus().run();
   };
 
   const handleExportPreview = async () => {
@@ -695,37 +618,13 @@ const ModeTwoWorkspace = () => {
     }
   };
 
-  const leftMenu = (
+  const settingsMenu = useMemo(() => (
     <div className={themedClass("mode-two-left-menu")}>
-      {activeAssignment ? (
-        <div className="mode-two-assignment-card">
-          <p className="mode-two-assignment-card__title">
-            {activeAssignment.title}
-          </p>
-          <p className="mode-two-assignment-card__meta">
-            Due{" "}
-            {assignmentDueDate
-              ? assignmentDueDate.toLocaleDateString()
-              : "flexible"}{" "}
-            - {assignmentBankCount} bank
-            {assignmentBankCount === 1 ? "" : "s"}
-          </p>
-          <p className="mode-two-assignment-card__meta">
-            Mode: {activeAssignment.modeLock === "mode1" ? "Mode 1" : "Mode 2"}
-          </p>
-        </div>
-      ) : (
-        <div className="mode-two-assignment-card is-empty">
-          No Mode 2 assignment selected yet.
-        </div>
-      )}
       <label className="mode-two-topic-label">
         Colour mode
         <select
           value={theme}
-          onChange={(event) =>
-            setTheme(event.target.value as WorkspaceTheme)
-          }
+          onChange={(event) => setTheme(event.target.value as WorkspaceTheme)}
           className="mode-two-select"
         >
           {themeOptions.map((option) => (
@@ -739,9 +638,7 @@ const ModeTwoWorkspace = () => {
         Topic focus
         <select
           value={topicFilter}
-          onChange={(event) =>
-            setTopicFilter(event.target.value as TopicFilter)
-          }
+          onChange={(event) => setTopicFilter(event.target.value as TopicFilter)}
           className="mode-two-select"
         >
           {availableTopics.map((topic) => (
@@ -757,54 +654,18 @@ const ModeTwoWorkspace = () => {
           <button
             type="button"
             onClick={() => setSortMode("class")}
-            className={`mode-two-sort-button${
-              sortMode === "class" ? " is-active" : ""
-            }`}
+            className={`mode-two-sort-button${sortMode === "class" ? " is-active" : ""}`}
           >
             Word class
           </button>
           <button
             type="button"
             onClick={() => setSortMode("alphabetical")}
-            className={`mode-two-sort-button${
-              sortMode === "alphabetical" ? " is-active" : ""
-            }`}
+            className={`mode-two-sort-button${sortMode === "alphabetical" ? " is-active" : ""}`}
           >
             Alphabetical
           </button>
         </div>
-      </div>
-      <div className="mode-two-panel">
-        <p className="mode-two-panel__title">Quick checks</p>
-        <ul className="mode-two-panel__list">
-          <li>
-            {analysis.missingCapital ? (
-              <span className="mode-two-text-notice">
-                Notice: start each sentence with a capital letter.
-              </span>
-            ) : (
-              <span className="mode-two-text-success">
-                Good job - sentences start with capitals.
-              </span>
-            )}
-          </li>
-          <li>
-            {analysis.missingPunctuation ? (
-              <span className="mode-two-text-notice">
-                Reminder: add punctuation at the end.
-              </span>
-            ) : (
-              <span className="mode-two-text-success">
-                Great - sentences end with punctuation.
-              </span>
-            )}
-          </li>
-          <li>
-            <span>
-              Read each sentence aloud to check it makes sense.
-            </span>
-          </li>
-        </ul>
       </div>
       {voices.length > 0 ? (
         <label className="mode-two-topic-label">
@@ -830,7 +691,7 @@ const ModeTwoWorkspace = () => {
         each paragraph.
       </div>
     </div>
-  );
+  ), [availableTopics, sortMode, theme, themedClass, topicFilter, voiceIndex, voices]);
 
   const canvas = (
     <div className="mode-two-canvas-shell">
@@ -848,33 +709,36 @@ const ModeTwoWorkspace = () => {
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              onClick={() => execFormattingCommand("bold")}
+          <button
+            type="button"
+            onClick={() => toggleMark("bold")}
             onMouseDown={(event) => event.preventDefault()}
             className="mode-two-toolbar-button"
             title="Bold"
             aria-label="Bold"
+            disabled={!editor}
           >
             <img src={iconBold} alt="" className="mode-two-toolbar-icon" />
           </button>
           <button
             type="button"
-            onClick={() => execFormattingCommand("italic")}
+            onClick={() => toggleMark("italic")}
             onMouseDown={(event) => event.preventDefault()}
             className="mode-two-toolbar-button"
             title="Italic"
             aria-label="Italic"
+            disabled={!editor}
           >
             <img src={iconItalic} alt="" className="mode-two-toolbar-icon" />
           </button>
           <button
             type="button"
-            onClick={() => execFormattingCommand("underline")}
+            onClick={() => toggleMark("underline")}
             onMouseDown={(event) => event.preventDefault()}
             className="mode-two-toolbar-button"
             title="Underline"
             aria-label="Underline"
+            disabled={!editor}
           >
             <img src={iconUnderline} alt="" className="mode-two-toolbar-icon" />
           </button>
@@ -885,6 +749,7 @@ const ModeTwoWorkspace = () => {
             className="mode-two-toolbar-button"
             title="Decrease font size"
             aria-label="Decrease font size"
+            disabled={!editor}
           >
             <img src={iconFontDecrease} alt="" className="mode-two-toolbar-icon" />
           </button>
@@ -895,6 +760,7 @@ const ModeTwoWorkspace = () => {
             className="mode-two-toolbar-button"
             title="Increase font size"
             aria-label="Increase font size"
+            disabled={!editor}
           >
             <img src={iconFontIncrease} alt="" className="mode-two-toolbar-icon" />
           </button>
@@ -905,6 +771,7 @@ const ModeTwoWorkspace = () => {
             className="mode-two-toolbar-button"
             title="Bulleted list"
             aria-label="Bulleted list"
+            disabled={!editor}
           >
             <img src={iconListBullets} alt="" className="mode-two-toolbar-icon" />
           </button>
@@ -915,57 +782,55 @@ const ModeTwoWorkspace = () => {
             className="mode-two-toolbar-button"
             title="Numbered list"
             aria-label="Numbered list"
+            disabled={!editor}
           >
             <img src={iconListNumbered} alt="" className="mode-two-toolbar-icon" />
           </button>
+          <VoiceRecorderControls
+            orientation="inline"
+            hideStatus
+            showButtonLabels={false}
+            useDefaultButtonStyles={false}
+            buttonClassName="mode-two-toolbar-button"
+            iconClassName="mode-two-toolbar-icon"
+          />
         </div>
-        <div
-          ref={draftRef}
-          contentEditable
-          suppressContentEditableWarning
-          role="textbox"
+        <EditorContent
+          editor={editor}
           aria-label="Writing area"
-          onInput={handleEditorInput}
-          onBlur={() => {
-            syncDraftFromDom();
-            saveSelection();
-          }}
-          onFocus={restoreSelection}
-          onMouseUp={saveSelection}
-          onKeyUp={saveSelection}
-          style={{ fontSize: `${fontSize}px`, fontFamily }}
           className="mode-two-editor"
+          style={{ fontSize: `${fontSize}px`, fontFamily }}
         />
         <div className="mode-two-action-bar">
-          <button
-            type="button"
-            onClick={handleSpeakDraft}
-            disabled={!canSpeak || !plainText.trim()}
-            className={`mode-two-action-button mode-two-action-button--speak${
-              !canSpeak || !plainText.trim() ? " is-disabled" : ""
-            }`}
-          >
-            {isSpeaking ? "Stop" : "Read back"}
-          </button>
-          <button
-            type="button"
-            onClick={handleClearDraft}
-            className="mode-two-action-button mode-two-action-button--clear"
-          >
-            Clear
-          </button>
-          <button
-            type="button"
-            onClick={handleExportPreview}
-            disabled={exportState === "loading" || !plainText.trim()}
-            className={`mode-two-action-button mode-two-action-button--export${
-              exportState === "loading" || !plainText.trim()
-                ? " is-disabled"
-                : ""
-            }`}
-          >
-            {exportState === "loading" ? "Exporting..." : "Export preview"}
-          </button>
+            <button
+              type="button"
+              onClick={handleSpeakDraft}
+              disabled={!canSpeak || !plainText.trim()}
+              className={`mode-two-action-button mode-two-action-button--speak${
+                !canSpeak || !plainText.trim() ? " is-disabled" : ""
+              }`}
+            >
+              {isSpeaking ? "Stop" : "Read back"}
+            </button>
+            <button
+              type="button"
+              onClick={handleClearDraft}
+              className="mode-two-action-button mode-two-action-button--clear"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPreview}
+              disabled={exportState === "loading" || !plainText.trim()}
+              className={`mode-two-action-button mode-two-action-button--export${
+                exportState === "loading" || !plainText.trim()
+                  ? " is-disabled"
+                  : ""
+              }`}
+            >
+              {exportState === "loading" ? "Exporting..." : "Export preview"}
+            </button>
         </div>
       </div>
     </div>
@@ -983,38 +848,41 @@ const ModeTwoWorkspace = () => {
 
   return (
       <div className={themedClass("mode-two-bank-strip")}>
-        {banks.map((bank) => (
-          <div
-            key={bank.id}
-            className="mode-two-bank-card"
-          >
-            <div className="mode-two-bank-card__header">
-              <div>
-                <p className="mode-two-bank-card__title">
-                  {bank.title}
-                </p>
-                <p className="mode-two-bank-card__meta">
-                  {bank.category} - {bank.topic}
-                </p>
+        {banks.map((bank) => {
+          const categoryMeta = resolveCategoryMeta(bank.category, bank.categoryLabel);
+          return (
+            <div
+              key={bank.id}
+              className="mode-two-bank-card"
+            >
+              <div className="mode-two-bank-card__header">
+                <div>
+                  <p className="mode-two-bank-card__title">
+                    {bank.title}
+                  </p>
+                  <p className="mode-two-bank-card__meta">
+                    {categoryMeta.label} - {bank.topic}
+                  </p>
+                </div>
+                <span className="mode-two-chip">
+                  {bank.items.length}
+                </span>
               </div>
-              <span className="mode-two-chip">
-                {bank.items.length}
-              </span>
+              <div className="mode-two-token-list">
+                {bank.items.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleInsertToken(item.text)}
+                    className="mode-two-token"
+                  >
+                    {item.text}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="mode-two-token-list">
-              {bank.items.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => handleInsertToken(item.text)}
-                  className="mode-two-token"
-                >
-                  {item.text}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -1028,82 +896,38 @@ const ModeTwoWorkspace = () => {
       );
     }
 
+    const activeBucket =
+      (activeAlphaLetter && buckets.find((bucket) => bucket.letter === activeAlphaLetter)) ??
+      buckets[0];
+
+    if (!activeBucket) {
+      return (
+        <div className={themedClass("mode-two-empty")}>
+          No words match the current filters.
+        </div>
+      );
+    }
+
     return (
       <div
-        className={`${themedClass("mode-two-bank-strip")} mode-two-bank-strip--alphabetical`}
+        key={activeBucket.letter}
+        id={`alpha-${activeBucket.letter}`}
+        className={themedClass("mode-two-alpha-card")}
       >
-        {buckets.map((bucket) => (
-          <div
-            key={bucket.letter}
-            id={`alpha-${bucket.letter}`}
-            className="mode-two-alpha-card"
-          >
-            <div className="mode-two-bank-card__header">
-              <p className="mode-two-bank-card__title">{bucket.letter}</p>
-              <span className="mode-two-chip">{bucket.items.length}</span>
-            </div>
-            <div className="mode-two-alpha-grid">
-              {bucket.items.map((item) => (
-                <button
-                  key={`${bucket.letter}-${item.id}`}
-                  type="button"
-                  onClick={() => handleInsertToken(item.text)}
-                  className="mode-two-token"
-                >
-                  {item.text}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const renderCatalogBankCard = (entry: { id: string; snapshot: WordBankSnapshot }) => {
-    const bank = entry.snapshot;
-    const headingCount = bank.headings.reduce(
-      (sum, heading) => sum + heading.items.length,
-      0,
-    );
-  return (
-      <div
-        key={entry.id}
-        className={themedClass("mode-two-catalog-card")}
-      >
-        <div className="mode-two-catalog-heading">
-          <div>
-            <p className="mode-two-catalog-title">
-              {bank.meta.topic ?? bank.fileName.replace(/\.txt$/, "")}
-            </p>
-            <p className="mode-two-catalog-meta">
-              {bank.meta.year} - {textTypeLabel(bank.meta.text_type)} -{" "}
-              {bank.meta.sub_type.replace(/-/g, " ")}
-            </p>
-          </div>
-          <span className="mode-two-chip">
-            {headingCount} entries
-          </span>
+        <div className="mode-two-bank-card__header">
+          <p className="mode-two-bank-card__title">{activeBucket.letter}</p>
+          <span className="mode-two-chip">{activeBucket.items.length}</span>
         </div>
-        <div className="mode-two-catalog-list">
-          {bank.headings.map((heading) => (
-            <div key={`${entry.id}-${heading.label}`}>
-              <p className="mode-two-catalog-subheading">
-                {heading.label}
-              </p>
-              <div className="mode-two-catalog-items">
-                {heading.items.map((item, index) => (
-                  <button
-                    key={`${heading.label}-${item.text}-${index}`}
-                    type="button"
-                    onClick={() => handleInsertToken(item.text)}
-                    className="mode-two-token"
-                  >
-                    {item.text}
-                  </button>
-                ))}
-              </div>
-            </div>
+        <div className="mode-two-alpha-grid">
+          {activeBucket.items.map((item) => (
+            <button
+              key={`${activeBucket.letter}-${item.id}`}
+              type="button"
+              onClick={() => handleInsertToken(item.text)}
+              className="mode-two-token"
+            >
+              {item.text}
+            </button>
           ))}
         </div>
       </div>
@@ -1111,13 +935,46 @@ const ModeTwoWorkspace = () => {
   };
 
   const alphabeticalLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  const { setContent: setGlobalMenuContent } = useGlobalMenu();
   const alphabeticalLetterSet = useMemo(() => {
     return new Set(alphabeticalBuckets.map((bucket) => bucket.letter));
   }, [alphabeticalBuckets]);
-  const classTabs = categoryOrder.map((category) => ({
-    id: category,
-    label: categoryLabels[category],
-    content: makeBankPanel(groupedByCategory[category]),
+
+  const firstAvailableLetter = useMemo(() => {
+    const firstBucket = alphabeticalBuckets[0];
+    return firstBucket ? firstBucket.letter : null;
+  }, [alphabeticalBuckets]);
+
+  const [activeAlphaLetter, setActiveAlphaLetter] = useState<string | null>(firstAvailableLetter);
+
+  useEffect(() => {
+    setGlobalMenuContent(settingsMenu);
+  }, [setGlobalMenuContent, settingsMenu]);
+
+  useEffect(() => {
+    return () => setGlobalMenuContent(null);
+  }, [setGlobalMenuContent]);
+
+  useEffect(() => {
+    if (sortMode === "alphabetical") {
+      setActiveAlphaLetter((current) => {
+        if (current && alphabeticalLetterSet.has(current)) {
+          return current;
+        }
+        return firstAvailableLetter;
+      });
+    }
+  }, [sortMode, firstAvailableLetter, alphabeticalLetterSet]);
+
+  useEffect(() => {
+    if (sortMode !== "alphabetical") {
+      setActiveAlphaLetter(null);
+    }
+  }, [sortMode]);
+  const classTabs = groupedCategories.map((category) => ({
+    id: category.key,
+    label: category.label,
+    content: makeBankPanel(category.banks),
   }));
 
   const baseTabs =
@@ -1133,65 +990,36 @@ const ModeTwoWorkspace = () => {
 
   return (
     <WorkspaceLayout
-      leftMenu={leftMenu}
       canvas={canvas}
       tabs={baseTabs}
       hideTabList={sortMode === "alphabetical"}
       headerAccessory={
         sortMode === "alphabetical" ? (
-          <div className={themedClass("mode-two-alpha-strip")}>
-            {alphabeticalLetters.map((letter) => {
-              const isAvailable = alphabeticalLetterSet.has(letter);
-              return (
-                <button
-                  key={letter}
-                  type="button"
-                  className="mode-two-alpha-link"
-                  disabled={!isAvailable}
-                  onClick={() => {
-                    if (!isAvailable) {
-                      return;
-                    }
-                    if (typeof document === "undefined") {
-                      return;
-                    }
-                    const target = document.getElementById(`alpha-${letter}`);
-                    if (!target) {
-                      return;
-                    }
-                    const container = target.closest(".mode-two-bank-strip--alphabetical");
-                    if (!(container instanceof HTMLElement)) {
-                      target.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                      return;
-                    }
-                    const { scrollHeight, clientHeight, scrollTop } = container;
-                    if (scrollHeight <= clientHeight) {
-                      target.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                      return;
-                    }
-                    const targetRect = target.getBoundingClientRect();
-                    const containerRect = container.getBoundingClientRect();
-                    const scrollMarginTop = parseFloat(
-                      window.getComputedStyle(target).scrollMarginTop ?? "0",
-                    );
-                    const unclampedScrollTop =
-                      scrollTop + (targetRect.top - containerRect.top) - scrollMarginTop;
-                    const maxScrollTop = scrollHeight - clientHeight;
-                    const nextScrollTop = Math.min(
-                      Math.max(unclampedScrollTop, 0),
-                      maxScrollTop,
-                    );
-                    container.scrollTo({
-                      top: nextScrollTop,
-                      behavior: "smooth",
-                    });
-                  }}
-                >
-                  {letter}
-                </button>
-              );
-            })}
-          </div>
+            <div className={themedClass("mode-two-alpha-strip")}>
+              {alphabeticalLetters.map((letter) => {
+                const isAvailable = alphabeticalLetterSet.has(letter);
+                const isActive = activeAlphaLetter === letter;
+                return (
+                  <button
+                    key={letter}
+                    type="button"
+                    className={clsx(
+                      "mode-two-alpha-link",
+                      isActive && isAvailable && "mode-two-alpha-link--active",
+                    )}
+                    disabled={!isAvailable}
+                    onClick={() => {
+                      if (!isAvailable) {
+                        return;
+                      }
+                      setActiveAlphaLetter(letter);
+                    }}
+                  >
+                    {letter}
+                  </button>
+                );
+              })}
+            </div>
         ) : null
       }
       bottomAccessory={
@@ -1214,3 +1042,24 @@ const ModeTwoWorkspace = () => {
 };
 
 export default ModeTwoWorkspace;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

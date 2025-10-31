@@ -1,5 +1,6 @@
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
+// Produce teacher-facing codes that avoid ambiguous characters.
 export const generateJoinCode = (length = 6) => {
   let code = "";
   for (let index = 0; index < length; index += 1) {

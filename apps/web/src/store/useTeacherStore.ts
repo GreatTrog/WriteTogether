@@ -43,14 +43,15 @@ type TeacherStore = {
   ) => void;
 };
 
+// Seed the preview with scaffolding so the UI has meaningful sample data.
 const defaultStore: Pick<
   TeacherStore,
   "classes" | "wordBanks" | "assignments"
 > = {
   classes: [
     {
-      id: "class-antarctica",
-      name: "Year 4 Polar Explorers",
+      id: "class-innovation",
+      name: "Year 4 Innovation Lab",
       phase: "LKS2",
       joinCode: generateJoinCode(),
       pupils: [
@@ -78,9 +79,9 @@ const defaultStore: Pick<
   wordBanks: modeTwoBanks,
   assignments: [
     {
-      id: "assignment-antarctica",
-      title: "Survival Diary - Shackleton",
-      classId: "class-antarctica",
+      id: "assignment-innovation",
+      title: "Innovation Journal - Design Sprint",
+      classId: "class-innovation",
       modeLock: "mode2",
       wordBankIds: pinnedBankIds(),
       templateId: null,
@@ -102,9 +103,10 @@ function pinnedBankIds() {
 
 export const useTeacherStore = create<TeacherStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       ...defaultStore,
 
+      // Create a new class shell with a generated join code.
       createClass: (name, phase) => {
         set((state) => ({
           classes: [
@@ -120,6 +122,7 @@ export const useTeacherStore = create<TeacherStore>()(
         }));
       },
 
+      // Append a pupil profile to the selected class, persisting their support needs.
       addPupil: (classId, displayName, needs) => {
         set((state) => ({
           classes: state.classes.map((classGroup) =>
@@ -141,6 +144,7 @@ export const useTeacherStore = create<TeacherStore>()(
         }));
       },
 
+      // Normalise values then add the assignment to the top of the list for quick access.
       createAssignment: (payload) => {
         const assignment: TeacherAssignment = {
           ...payload,
@@ -154,6 +158,7 @@ export const useTeacherStore = create<TeacherStore>()(
         }));
       },
 
+      // Store teacher-authored banks locally so they surface in the assignment builder.
       addWordBank: (bank) => {
         set((state) => ({
           wordBanks: [
@@ -168,12 +173,14 @@ export const useTeacherStore = create<TeacherStore>()(
     }),
     {
       name: "writetogether-teacher-store",
+      // Persist only user-generated data so derived helpers don't bloat storage.
       partialize: (state) => ({
         classes: state.classes,
         assignments: state.assignments,
         wordBanks: state.wordBanks,
       }),
       version: 1,
+      // Convert serialized dates back into Date instances once hydration finishes.
       onRehydrateStorage: () => (state) => {
         if (!state) {
           return;
