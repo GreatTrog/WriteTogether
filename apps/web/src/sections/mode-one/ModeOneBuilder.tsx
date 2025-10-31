@@ -384,8 +384,26 @@ const ModeOneBuilder = () => {
       >
         Clear sentence
       </button>
+      {voices.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Voice
+          </p>
+          <select
+            value={voiceIndex}
+            onChange={(event) => setVoiceIndex(Number(event.target.value))}
+            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+          >
+            {voices.map((voice, index) => (
+              <option key={voice.name} value={index}>
+                {voice.name} ({voice.lang})
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
     </div>
-  ), [handleClear, handleToggleSlot, punctuation, slotState]);
+  ), [handleClear, handleToggleSlot, punctuation, slotState, voiceIndex, voices]);
   const slotBoard = (
     <div className="flex flex-wrap items-center justify-center gap-3">
       {slotOrder.map((slot) => {
@@ -577,6 +595,10 @@ const ModeOneBuilder = () => {
 };
 
 export default ModeOneBuilder;
+
+
+
+
 
 
 

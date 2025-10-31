@@ -8,6 +8,7 @@ import {
   type ModeTwoBank,
 } from "./data";
 import { useTeacherStore } from "../../store/useTeacherStore";
+import { useWorkspaceSettings } from "../../store/useWorkspaceSettings";
 import { type WordBankSnapshot } from "../../services/wordBankCatalog";
 import "./ModeTwoWorkspace.css";
 import iconBold from "../../assets/icons/Bold.svg";
@@ -39,7 +40,6 @@ pdfMakeWithVfs.vfs = pdfFontsVfs;
 type TopicFilter = "all" | ModeTwoBank["topic"];
 
 const draftStorageKey = "writetogether-mode2-draft";
-const themeStorageKey = "writetogether-mode2-theme";
 
 // Map fuzzy heading labels from catalog imports into the classroom categories.
 const headingCategoryMap: Record<string, CoreWordClass> = {
@@ -134,8 +134,6 @@ const resolveCategoryMeta = (
 
 const fontOptions = ["Arial", "Century Gothic", "Calibri", "Helvetica", "Verdana"];
 
-type WorkspaceTheme = "standard" | "dyslexia" | "high-contrast" | "dark";
-
 type FilePickerWindow = Window & typeof globalThis & {
   showSaveFilePicker?: (
     options?: {
@@ -208,13 +206,6 @@ const generatePdfBlob = (definition: TDocumentDefinitions) =>
     }
   });
 
-const themeOptions: Array<{ value: WorkspaceTheme; label: string }> = [
-  { value: "standard", label: "Standard" },
-  { value: "dyslexia", label: "Dyslexia-friendly" },
-  { value: "high-contrast", label: "High contrast" },
-  { value: "dark", label: "Dark" },
-];
-
 type AlphabeticalBucket = {
   letter: string;
   items: Array<{
@@ -269,7 +260,7 @@ const ModeTwoWorkspace = () => {
   const [exportToast, setExportToast] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState<number>(16);
   const [fontFamily, setFontFamily] = useState<string>(fontOptions[0]);
-  const [theme, setTheme] = useState<WorkspaceTheme>("standard");
+  const theme = useWorkspaceSettings((state) => state.theme);
 
   const assignments = useTeacherStore((state) => state.assignments);
   const libraryWordBanks = useTeacherStore((state) => state.wordBanks);
@@ -280,7 +271,6 @@ const ModeTwoWorkspace = () => {
   });
   const [voiceIndex, setVoiceIndex] = useState(0);
   const hasManualVoiceSelection = useRef(false);
-  const hasLoadedTheme = useRef(false);
   const editor = useEditor(
     {
       extensions: [
@@ -359,30 +349,7 @@ const ModeTwoWorkspace = () => {
     }
   }, [voices, voiceIndex]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const stored = window.localStorage.getItem(themeStorageKey);
-    if (
-      stored === "standard" ||
-      stored === "dyslexia" ||
-      stored === "high-contrast" ||
-      stored === "dark"
-    ) {
-      setTheme(stored);
-    }
-    hasLoadedTheme.current = true;
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !hasLoadedTheme.current) {
-      return;
-    }
-    window.localStorage.setItem(themeStorageKey, theme);
-  }, [theme]);
-
-  useEffect(() => {
+useEffect(() => {
     const id = window.setTimeout(() => {
       window.localStorage.setItem(draftStorageKey, draftHtml);
     }, 300);
@@ -852,20 +819,6 @@ const ModeTwoWorkspace = () => {
   const settingsMenu = useMemo(() => (
     <div className={themedClass("mode-two-left-menu")}>
       <label className="mode-two-topic-label">
-        Colour mode
-        <select
-          value={theme}
-          onChange={(event) => setTheme(event.target.value as WorkspaceTheme)}
-          className="mode-two-select"
-        >
-          {themeOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="mode-two-topic-label">
         Topic focus
         <select
           value={topicFilter}
@@ -922,7 +875,7 @@ const ModeTwoWorkspace = () => {
         each paragraph.
       </div>
     </div>
-  ), [availableTopics, sortMode, theme, themedClass, topicFilter, voiceIndex, voices]);
+  ), [availableTopics, setSortMode, sortMode, themedClass, topicFilter, voiceIndex, voices]);
 
   const canvas = (
     <div className="mode-two-canvas-shell">
@@ -1289,6 +1242,15 @@ const ModeTwoWorkspace = () => {
 };
 
 export default ModeTwoWorkspace;
+
+
+
+
+
+
+
+
+
 
 
 
