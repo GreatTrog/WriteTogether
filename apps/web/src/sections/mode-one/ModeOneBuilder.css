@@ -1,0 +1,212 @@
+.mode-one-chip {
+  border: 1px solid var(--chip-border);
+  background-color: var(--chip-bg);
+  color: var(--chip-text);
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.mode-one-chip:hover:not(.is-disabled) {
+  background-color: var(--chip-hover-bg);
+  transform: translateY(-2px);
+}
+
+
+.mode-one-chip.is-selected {
+  background-color: var(--chip-selected-bg);
+  color: var(--chip-selected-text);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
+}
+
+
+.mode-one-chip.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.mode-one-chip__indicator {
+  pointer-events: none;
+  position: absolute;
+  right: -0.5rem;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  background-color: var(--chip-selected-bg);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.mode-one-chip.is-selected .mode-one-chip__indicator {
+  opacity: 0.45;
+}
+
+.mode-one-chip.is-disabled .mode-one-chip__indicator {
+  opacity: 0;
+}
+
+.mode-one-slot {
+  border: 1px dashed var(--slot-border);
+  background-color: var(--slot-bg);
+  color: var(--slot-text);
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+
+  border-style: dashed;
+}
+
+.mode-one-slot.is-empty {
+  border-style: dashed;
+}
+
+
+.mode-one-slot.is-filled {
+  border-style: solid;
+  border-color: var(--slot-selected-border);
+  background-color: var(--slot-selected-bg);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
+}
+
+.mode-one-slot.is-hover {
+  box-shadow: 0 0 0 4px var(--chip-selected-bg), 0 16px 32px rgba(15, 23, 42, 0.16);
+}
+
+.mode-one-preview-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background-color: var(--preview-bg);
+  color: var(--preview-text);
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+}
+
+.mode-one-chip--who,
+.mode-one-slot--who,
+.mode-one-preview-chip--who {
+  --chip-bg: var(--sem-who-chip-bg);
+  --chip-hover-bg: var(--sem-who-chip-hover-bg);
+  --chip-selected-bg: var(--sem-who-chip-selected-bg);
+  --chip-selected-text: var(--sem-who-chip-selected-text);
+  --chip-text: var(--sem-who-chip-text);
+  --chip-border: var(--sem-who-chip-border);
+  --slot-bg: var(--sem-who-slot-bg);
+  --slot-selected-bg: var(--sem-who-slot-selected-bg);
+  --slot-text: var(--sem-who-slot-text);
+  --slot-border: var(--sem-who-slot-border);
+  --slot-selected-border: var(--sem-who-slot-selected-border);
+  --preview-bg: var(--sem-who-preview-bg);
+  --preview-text: var(--sem-who-preview-text);
+}
+
+.mode-one-chip--doing,
+.mode-one-slot--doing,
+.mode-one-preview-chip--doing {
+  --chip-bg: var(--sem-doing-chip-bg);
+  --chip-hover-bg: var(--sem-doing-chip-hover-bg);
+  --chip-selected-bg: var(--sem-doing-chip-selected-bg);
+  --chip-selected-text: var(--sem-doing-chip-selected-text);
+  --chip-text: var(--sem-doing-chip-text);
+  --chip-border: var(--sem-doing-chip-border);
+  --slot-bg: var(--sem-doing-slot-bg);
+  --slot-selected-bg: var(--sem-doing-slot-selected-bg);
+  --slot-text: var(--sem-doing-slot-text);
+  --slot-border: var(--sem-doing-slot-border);
+  --slot-selected-border: var(--sem-doing-slot-selected-border);
+  --preview-bg: var(--sem-doing-preview-bg);
+  --preview-text: var(--sem-doing-preview-text);
+}
+
+.mode-one-chip--what,
+.mode-one-slot--what,
+.mode-one-preview-chip--what {
+  --chip-bg: var(--sem-what-chip-bg);
+  --chip-hover-bg: var(--sem-what-chip-hover-bg);
+  --chip-selected-bg: var(--sem-what-chip-selected-bg);
+  --chip-selected-text: var(--sem-what-chip-selected-text);
+  --chip-text: var(--sem-what-chip-text);
+  --chip-border: var(--sem-what-chip-border);
+  --slot-bg: var(--sem-what-slot-bg);
+  --slot-selected-bg: var(--sem-what-slot-selected-bg);
+  --slot-text: var(--sem-what-slot-text);
+  --slot-border: var(--sem-what-slot-border);
+  --slot-selected-border: var(--sem-what-slot-selected-border);
+  --preview-bg: var(--sem-what-preview-bg);
+  --preview-text: var(--sem-what-preview-text);
+}
+
+.mode-one-chip--where,
+.mode-one-slot--where,
+.mode-one-preview-chip--where {
+  --chip-bg: var(--sem-where-chip-bg);
+  --chip-hover-bg: var(--sem-where-chip-hover-bg);
+  --chip-selected-bg: var(--sem-where-chip-selected-bg);
+  --chip-selected-text: var(--sem-where-chip-selected-text);
+  --chip-text: var(--sem-where-chip-text);
+  --chip-border: var(--sem-where-chip-border);
+  --slot-bg: var(--sem-where-slot-bg);
+  --slot-selected-bg: var(--sem-where-slot-selected-bg);
+  --slot-text: var(--sem-where-slot-text);
+  --slot-border: var(--sem-where-slot-border);
+  --slot-selected-border: var(--sem-where-slot-selected-border);
+  --preview-bg: var(--sem-where-preview-bg);
+  --preview-text: var(--sem-where-preview-text);
+}
+
+.mode-one-chip--when,
+.mode-one-slot--when,
+.mode-one-preview-chip--when {
+  --chip-bg: var(--sem-when-chip-bg);
+  --chip-hover-bg: var(--sem-when-chip-hover-bg);
+  --chip-selected-bg: var(--sem-when-chip-selected-bg);
+  --chip-selected-text: var(--sem-when-chip-selected-text);
+  --chip-text: var(--sem-when-chip-text);
+  --chip-border: var(--sem-when-chip-border);
+  --slot-bg: var(--sem-when-slot-bg);
+  --slot-selected-bg: var(--sem-when-slot-selected-bg);
+  --slot-text: var(--sem-when-slot-text);
+  --slot-border: var(--sem-when-slot-border);
+  --slot-selected-border: var(--sem-when-slot-selected-border);
+  --preview-bg: var(--sem-when-preview-bg);
+  --preview-text: var(--sem-when-preview-text);
+}
+
+.mode-one-slot__indicator {
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  bottom: -0.75rem;
+  height: 0.75rem;
+  width: 1.5rem;
+  transform: translateX(-50%);
+  border-radius: 0 0 9999px 9999px;
+  background-color: var(--app-card); opacity: 0.6;
+}
+
+.mode-one-slot.is-filled .mode-one-slot__indicator {
+  background-color: var(--chip-selected-bg);
+  opacity: 0.6;
+}
+
+
+
+.mode-one-board {
+  border-color: var(--app-border);
+  background-color: var(--app-muted-surface);
+}
+
+.mode-one-panel {
+  border: 1px solid var(--app-border);
+  background-color: var(--app-card);
+  color: var(--app-text-primary);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+}
+
+.mode-one-panel--muted {
+  background-color: var(--app-muted-surface);
+  color: var(--app-text-muted);
+}
+
+
+
+

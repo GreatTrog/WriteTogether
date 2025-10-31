@@ -29,13 +29,18 @@ const ColorModeSection = ({ variant = "default" }: ColorModeSectionProps) => {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--app-text-muted)" }}>
         Colour mode
       </p>
       <select
         value={theme}
         onChange={(event) => setTheme(event.target.value as WorkspaceTheme)}
-        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+        className="w-full rounded-md border px-3 py-2 text-sm font-medium shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        style={{
+          borderColor: "var(--app-control-border)",
+          backgroundColor: "var(--app-panel)",
+          color: "var(--app-text-primary)",
+        }}
       >
         {themeOptions.map((option) => (
           <option key={option.value} value={option.value}>
@@ -48,3 +53,5 @@ const ColorModeSection = ({ variant = "default" }: ColorModeSectionProps) => {
 };
 
 export default ColorModeSection;
+
+
