@@ -148,7 +148,7 @@ const useVoiceRecorder = (
       audio.currentTime = 0;
       audioRef.current = null;
     }
-    setStatus((current) => (audioUrl ? "ready" : "idle"));
+    setStatus(audioUrl ? "ready" : "idle");
   }, [audioUrl]);
 
   const pause = useCallback(() => {

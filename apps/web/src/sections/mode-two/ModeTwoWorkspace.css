@@ -290,9 +290,40 @@
   box-shadow: var(--mode-two-shadow-inner);
 }
 
-.mode-two-editor:focus-visible {
+.mode-two-editor:focus-within {
   outline: 2px solid var(--mode-two-focus-outline);
   outline-offset: 2px;
+}
+
+.mode-two-editor .ProseMirror {
+  min-height: inherit;
+  outline: none;
+}
+
+.mode-two-editor .ProseMirror p {
+  margin: 0 0 var(--mode-two-spacing-sm);
+}
+
+.mode-two-editor .ProseMirror p:last-child {
+  margin-bottom: 0;
+}
+
+.mode-two-editor ul,
+.mode-two-editor ol {
+  padding-left: 1.5rem;
+  margin: 0 0 var(--mode-two-spacing-sm) var(--mode-two-spacing-sm);
+}
+
+.mode-two-editor ul {
+  list-style: disc;
+}
+
+.mode-two-editor ol {
+  list-style: decimal;
+}
+
+.mode-two-editor li + li {
+  margin-top: 0.25rem;
 }
 
 .mode-two-action-bar {

@@ -15,6 +15,8 @@ export const GlobalMenuProvider = ({ children }: PropsWithChildren): JSX.Element
   return <GlobalMenuContext.Provider value={value}>{children}</GlobalMenuContext.Provider>;
 };
 
+// This hook intentionally lives alongside the provider; suppress the fast-refresh advisory.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useGlobalMenu = () => {
   const context = useContext(GlobalMenuContext);
   if (!context) {

@@ -11,7 +11,6 @@ import {
   TextType,
   textTypeLabel,
   wordBankCatalog,
-  type WordBankDocument,
   type WordBankSnapshot,
 } from "../../services/wordBankCatalog";
 

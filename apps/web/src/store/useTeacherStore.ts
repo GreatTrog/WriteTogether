@@ -103,7 +103,7 @@ function pinnedBankIds() {
 
 export const useTeacherStore = create<TeacherStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       ...defaultStore,
 
       // Create a new class shell with a generated join code.

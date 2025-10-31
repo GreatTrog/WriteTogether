@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import WorkspaceLayout from "../../layouts/WorkspaceLayout";
 import useSpeechSynthesis from "../../hooks/useSpeechSynthesis";
 import {
@@ -9,10 +8,7 @@ import {
   type ModeTwoBank,
 } from "./data";
 import { useTeacherStore } from "../../store/useTeacherStore";
-import {
-  textTypeLabel,
-  type WordBankSnapshot,
-} from "../../services/wordBankCatalog";
+import { type WordBankSnapshot } from "../../services/wordBankCatalog";
 import "./ModeTwoWorkspace.css";
 import iconBold from "../../assets/icons/Bold.svg";
 import iconItalic from "../../assets/icons/Italics.svg";
@@ -24,6 +20,11 @@ import iconListNumbered from "../../assets/icons/Numbered_Bullets.svg";
 import clsx from "clsx";
 import { useGlobalMenu } from "../../components/GlobalMenu";
 import VoiceRecorderControls from "../../components/VoiceRecorderControls";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import TextStyle from "@tiptap/extension-text-style";
+import Placeholder from "@tiptap/extension-placeholder";
 
 // Mode 2 offers a click-to-compose drafting space with adaptive templates and export hooks.
 type TopicFilter = "all" | ModeTwoBank["topic"];
@@ -170,43 +171,6 @@ const resolveTopicFromSnapshot = (snapshot: WordBankSnapshot): string => {
   return snapshot.fileName.replace(/\.txt$/, "").replace(/[_-]+/g, " ").trim();
 };
 
-type AnalysisResult = {
-  missingCapital: boolean;
-  missingPunctuation: boolean;
-  readingLevel: number;
-};
-
-// Lightweight checks surface quick wins for self-editing feedback.
-const analyseText = (text: string): AnalysisResult => {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return {
-      missingCapital: false,
-      missingPunctuation: false,
-      readingLevel: 0,
-    };
-  }
-
-  const sentences = trimmed
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
-
-  const missingCapital = sentences.some(
-    (sentence) => sentence.length > 0 && !/^[A-Z]/.test(sentence),
-  );
-  const missingPunctuation = sentences.length > 0 && !/[.!?]$/.test(trimmed);
-
-  const averageSentenceLength =
-    sentences.length > 0 ? trimmed.length / sentences.length : trimmed.length;
-
-  return {
-    missingCapital,
-    missingPunctuation,
-    readingLevel: Number(averageSentenceLength.toFixed(1)),
-  };
-};
-
 const ModeTwoWorkspace = () => {
   // Hydrate state from localStorage so drafts, theme, and filters survive reloads.
   const [topicFilter, setTopicFilter] = useState<TopicFilter>("all");
@@ -227,15 +191,33 @@ const ModeTwoWorkspace = () => {
 
   const assignments = useTeacherStore((state) => state.assignments);
   const libraryWordBanks = useTeacherStore((state) => state.wordBanks);
-
-  const draftRef = useRef<HTMLDivElement | null>(null);
-  const savedRangeRef = useRef<Range | null>(null);
   const { canSpeak, isSpeaking, speak, stop, voices } = useSpeechSynthesis({
     locale: "en-gb",
   });
   const [voiceIndex, setVoiceIndex] = useState(0);
   const hasManualVoiceSelection = useRef(false);
   const hasLoadedTheme = useRef(false);
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit.configure({
+          bulletList: { keepMarks: true, keepAttributes: true },
+          orderedList: { keepMarks: true, keepAttributes: true },
+        }),
+        Underline,
+        TextStyle,
+        Placeholder.configure({
+          placeholder: "Start your draft...",
+        }),
+      ],
+      content: draftHtml ? draftHtml : "<p></p>",
+      onUpdate: ({ editor }) => {
+        const nextHtml = editor.isEmpty ? "" : editor.getHTML();
+        setDraftHtml((current) => (current === nextHtml ? current : nextHtml));
+      },
+    },
+    [],
+  );
 
   const plainText = useMemo(() => {
     if (!draftHtml) {
@@ -248,6 +230,21 @@ const ModeTwoWorkspace = () => {
     container.innerHTML = draftHtml;
   return (container.textContent ?? "").replace(/\u00a0/g, " ");
   }, [draftHtml]);
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+    const targetHtml = draftHtml === "" ? "<p></p>" : draftHtml;
+    const currentHtml = editor.getHTML();
+    if (draftHtml === "" && editor.isEmpty) {
+      return;
+    }
+    if (currentHtml === targetHtml) {
+      return;
+    }
+    editor.commands.setContent(targetHtml, false);
+  }, [editor, draftHtml]);
 
   useEffect(() => {
     if (!voices.length) {
@@ -308,16 +305,6 @@ const ModeTwoWorkspace = () => {
   return () => window.clearTimeout(id);
   }, [draftHtml]);
 
-  useEffect(() => {
-    const node = draftRef.current;
-    if (!node) {
-      return;
-    }
-    if (node.innerHTML !== draftHtml) {
-      node.innerHTML = draftHtml || "";
-    }
-  }, [draftHtml]);
-
   const activeAssignment = useMemo(() => {
     const modeTwoAssignments = assignments.filter(
       (assignment) => assignment.modeLock !== "mode1",
@@ -328,7 +315,10 @@ const ModeTwoWorkspace = () => {
     return published ?? modeTwoAssignments[0] ?? null;
   }, [assignments]);
 
-  const activeWordBankIds = activeAssignment?.wordBankIds ?? [];
+  const activeWordBankIds = useMemo(
+    () => activeAssignment?.wordBankIds ?? [],
+    [activeAssignment],
+  );
 
   const assignedCatalogBanks = useMemo(() => {
     if (!activeAssignment) {
@@ -347,32 +337,13 @@ const ModeTwoWorkspace = () => {
         (entry): entry is { id: string; snapshot: WordBankSnapshot } =>
           Boolean(entry),
       );
-  }, [activeAssignment]);
-
-  const assignedLibraryBanks = useMemo(() => {
-    if (!activeAssignment) {
-      return [];
-    }
-    return activeWordBankIds
-      .map((id) => libraryWordBanks.find((bank) => bank.id === id))
-      .filter((bank): bank is ModeTwoBank => Boolean(bank));
-  }, [activeAssignment, libraryWordBanks, activeWordBankIds]);
-
-  const assignmentDueDate = activeAssignment?.dueAt
-    ? new Date(activeAssignment.dueAt)
-    : null;
-  const assignmentBankCount = activeWordBankIds.length;
-
-  const topicFilterLabel =
-    topicFilter === "all"
-      ? "All topics"
-      : topicFilter.charAt(0).toUpperCase() + topicFilter.slice(1);
-  const sortLabel =
-    sortMode === "class" ? "Word class view" : "Alphabetical view";
+  }, [activeAssignment, activeWordBankIds]);
 
   const themeClassName = theme === "standard" ? "" : `mode-two-theme-${theme}`;
-  const themedClass = (base: string) =>
-    themeClassName ? `${base} ${themeClassName}` : base;
+  const themedClass = useCallback(
+    (base: string) => (themeClassName ? `${base} ${themeClassName}` : base),
+    [themeClassName],
+  );
 
   const catalogCategoryBanks = useMemo<ModeTwoBank[]>(() => {
     if (assignedCatalogBanks.length === 0) {
@@ -532,8 +503,18 @@ const ModeTwoWorkspace = () => {
 
 
   const handleInsertToken = (token: string) => {
+    if (!editor) {
+      return;
+    }
     const insertion = token.endsWith(" ") ? token : `${token} `;
-    insertTextAtSelection(insertion);
+    editor
+      .chain()
+      .focus()
+      .insertContent({
+        type: "text",
+        text: insertion,
+      })
+      .run();
   };
 
   const handleSpeakDraft = () => {
@@ -555,189 +536,57 @@ const ModeTwoWorkspace = () => {
   };
 
   const handleClearDraft = () => {
-    setDraftHtml("");
     stop();
-    if (draftRef.current) {
-      draftRef.current.innerHTML = "";
+    if (!editor) {
+      setDraftHtml("");
+      return;
     }
-    savedRangeRef.current = null;
+    editor.chain().focus().clearContent(true).run();
   };
 
   const handleIncreaseFont = () => {
     setFontSize((size) => Math.min(size + 2, 28));
-    saveSelection();
+    editor?.chain().focus().run();
   };
 
   const handleDecreaseFont = () => {
     setFontSize((size) => Math.max(size - 2, 12));
-    saveSelection();
+    editor?.chain().focus().run();
   };
 
-  const saveSelection = () => {
-    if (typeof window === "undefined") {
+  const toggleMark = (mark: "bold" | "italic" | "underline") => {
+    if (!editor) {
       return;
     }
-    const selection = window.getSelection();
-    const editor = draftRef.current;
-    if (!selection || selection.rangeCount === 0 || !editor) {
-      return;
+    const chain = editor.chain().focus();
+    switch (mark) {
+      case "bold":
+        chain.toggleBold().run();
+        break;
+      case "italic":
+        chain.toggleItalic().run();
+        break;
+      case "underline":
+        chain.toggleUnderline().run();
+        break;
     }
-    const range = selection.getRangeAt(0);
-    if (!editor.contains(range.commonAncestorContainer)) {
-      return;
-    }
-    savedRangeRef.current = range.cloneRange();
-  };
-
-  const restoreSelection = () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const selection = window.getSelection();
-    const editor = draftRef.current;
-    if (!selection || !editor) {
-      return;
-    }
-    selection.removeAllRanges();
-    if (savedRangeRef.current) {
-      selection.addRange(savedRangeRef.current);
-    } else {
-      const range = document.createRange();
-      range.selectNodeContents(editor);
-      range.collapse(false);
-      selection.addRange(range);
-      savedRangeRef.current = range.cloneRange();
-    }
-  };
-
-  const focusEditor = () => {
-    const node = draftRef.current;
-    if (!node) {
-      return;
-    }
-    node.focus({ preventScroll: true });
-    restoreSelection();
-  };
-
-  const syncDraftFromDom = () => {
-    const node = draftRef.current;
-    if (!node) {
-      return;
-    }
-    setDraftHtml(node.innerHTML);
-  };
-
-  const execFormattingCommand = (command: string, value?: string) => {
-    if (typeof document === "undefined") {
-      return;
-    }
-    focusEditor();
-    const success = document.execCommand(command, false, value ?? "");
-    if (!success) {
-      syncDraftFromDom();
-    } else {
-      syncDraftFromDom();
-    }
-    saveSelection();
   };
 
   const applyListCommand = (ordered: boolean) => {
-    if (typeof document === "undefined") {
+    if (!editor) {
       return;
     }
-    focusEditor();
-    const command = ordered ? "insertOrderedList" : "insertUnorderedList";
-    const success = document.execCommand(command, false, undefined);
-    if (!success) {
-      const selection = window.getSelection();
-      const editor = draftRef.current;
-      if (!selection || !editor || selection.rangeCount === 0) {
-        return;
-      }
-      const range = selection.getRangeAt(0);
-      const listTag = ordered ? "ol" : "ul";
-      const list = document.createElement(listTag);
-      if (selection.isCollapsed) {
-        const li = document.createElement("li");
-        li.innerHTML = "&nbsp;";
-        list.appendChild(li);
-        range.insertNode(list);
-        const newRange = document.createRange();
-        newRange.selectNodeContents(li);
-        newRange.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-        savedRangeRef.current = newRange.cloneRange();
-      } else {
-        const text = selection
-          .toString()
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean);
-        range.deleteContents();
-        text.forEach((line) => {
-          const li = document.createElement("li");
-          li.textContent = line;
-          list.appendChild(li);
-        });
-        if (!list.childNodes.length) {
-          const li = document.createElement("li");
-          li.innerHTML = "&nbsp;";
-          list.appendChild(li);
-        }
-        range.insertNode(list);
-        selection.removeAllRanges();
-        const newRange = document.createRange();
-        newRange.selectNodeContents(list);
-        selection.addRange(newRange);
-        savedRangeRef.current = newRange.cloneRange();
-      }
+    const chain = editor.chain().focus();
+    if (ordered) {
+      chain.toggleOrderedList().run();
     } else {
-      saveSelection();
+      chain.toggleBulletList().run();
     }
-    syncDraftFromDom();
-    saveSelection();
-  };
-
-  const insertTextAtSelection = (text: string) => {
-    if (typeof document === "undefined") {
-      return;
-    }
-    focusEditor();
-    const success = document.execCommand("insertText", false, text);
-    if (!success) {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        range.deleteContents();
-        range.insertNode(document.createTextNode(text));
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
-        savedRangeRef.current = range.cloneRange();
-      } else if (draftRef.current) {
-        draftRef.current.append(document.createTextNode(text));
-        const range = document.createRange();
-        range.selectNodeContents(draftRef.current);
-        range.collapse(false);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-        savedRangeRef.current = range.cloneRange();
-      }
-    }
-    syncDraftFromDom();
-    saveSelection();
-  };
-
-  const handleEditorInput = (event: FormEvent<HTMLDivElement>) => {
-    setDraftHtml(event.currentTarget.innerHTML);
-    saveSelection();
   };
 
   const handleFontChange = (value: string) => {
     setFontFamily(value);
-    execFormattingCommand("fontName", value);
+    editor?.chain().focus().run();
   };
 
   const handleExportPreview = async () => {
@@ -842,7 +691,7 @@ const ModeTwoWorkspace = () => {
         each paragraph.
       </div>
     </div>
-  ), [availableTopics, sortMode, theme, themeOptions, topicFilter, voiceIndex, voices]);
+  ), [availableTopics, sortMode, theme, themedClass, topicFilter, voiceIndex, voices]);
 
   const canvas = (
     <div className="mode-two-canvas-shell">
@@ -860,33 +709,36 @@ const ModeTwoWorkspace = () => {
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              onClick={() => execFormattingCommand("bold")}
+          <button
+            type="button"
+            onClick={() => toggleMark("bold")}
             onMouseDown={(event) => event.preventDefault()}
             className="mode-two-toolbar-button"
             title="Bold"
             aria-label="Bold"
+            disabled={!editor}
           >
             <img src={iconBold} alt="" className="mode-two-toolbar-icon" />
           </button>
           <button
             type="button"
-            onClick={() => execFormattingCommand("italic")}
+            onClick={() => toggleMark("italic")}
             onMouseDown={(event) => event.preventDefault()}
             className="mode-two-toolbar-button"
             title="Italic"
             aria-label="Italic"
+            disabled={!editor}
           >
             <img src={iconItalic} alt="" className="mode-two-toolbar-icon" />
           </button>
           <button
             type="button"
-            onClick={() => execFormattingCommand("underline")}
+            onClick={() => toggleMark("underline")}
             onMouseDown={(event) => event.preventDefault()}
             className="mode-two-toolbar-button"
             title="Underline"
             aria-label="Underline"
+            disabled={!editor}
           >
             <img src={iconUnderline} alt="" className="mode-two-toolbar-icon" />
           </button>
@@ -897,6 +749,7 @@ const ModeTwoWorkspace = () => {
             className="mode-two-toolbar-button"
             title="Decrease font size"
             aria-label="Decrease font size"
+            disabled={!editor}
           >
             <img src={iconFontDecrease} alt="" className="mode-two-toolbar-icon" />
           </button>
@@ -907,6 +760,7 @@ const ModeTwoWorkspace = () => {
             className="mode-two-toolbar-button"
             title="Increase font size"
             aria-label="Increase font size"
+            disabled={!editor}
           >
             <img src={iconFontIncrease} alt="" className="mode-two-toolbar-icon" />
           </button>
@@ -917,6 +771,7 @@ const ModeTwoWorkspace = () => {
             className="mode-two-toolbar-button"
             title="Bulleted list"
             aria-label="Bulleted list"
+            disabled={!editor}
           >
             <img src={iconListBullets} alt="" className="mode-two-toolbar-icon" />
           </button>
@@ -927,6 +782,7 @@ const ModeTwoWorkspace = () => {
             className="mode-two-toolbar-button"
             title="Numbered list"
             aria-label="Numbered list"
+            disabled={!editor}
           >
             <img src={iconListNumbered} alt="" className="mode-two-toolbar-icon" />
           </button>
@@ -939,22 +795,11 @@ const ModeTwoWorkspace = () => {
             iconClassName="mode-two-toolbar-icon"
           />
         </div>
-        <div
-          ref={draftRef}
-          contentEditable
-          suppressContentEditableWarning
-          role="textbox"
+        <EditorContent
+          editor={editor}
           aria-label="Writing area"
-          onInput={handleEditorInput}
-          onBlur={() => {
-            syncDraftFromDom();
-            saveSelection();
-          }}
-          onFocus={restoreSelection}
-          onMouseUp={saveSelection}
-          onKeyUp={saveSelection}
-          style={{ fontSize: `${fontSize}px`, fontFamily }}
           className="mode-two-editor"
+          style={{ fontSize: `${fontSize}px`, fontFamily }}
         />
         <div className="mode-two-action-bar">
             <button
@@ -1089,56 +934,6 @@ const ModeTwoWorkspace = () => {
     );
   };
 
-  const renderCatalogBankCard = (entry: { id: string; snapshot: WordBankSnapshot }) => {
-    const bank = entry.snapshot;
-    const headingCount = bank.headings.reduce(
-      (sum, heading) => sum + heading.items.length,
-      0,
-    );
-  return (
-      <div
-        key={entry.id}
-        className={themedClass("mode-two-catalog-card")}
-      >
-        <div className="mode-two-catalog-heading">
-          <div>
-            <p className="mode-two-catalog-title">
-              {bank.meta.topic ?? bank.fileName.replace(/\.txt$/, "")}
-            </p>
-            <p className="mode-two-catalog-meta">
-              {bank.meta.year} - {textTypeLabel(bank.meta.text_type)} -{" "}
-              {bank.meta.sub_type.replace(/-/g, " ")}
-            </p>
-          </div>
-          <span className="mode-two-chip">
-            {headingCount} entries
-          </span>
-        </div>
-        <div className="mode-two-catalog-list">
-          {bank.headings.map((heading) => (
-            <div key={`${entry.id}-${heading.label}`}>
-              <p className="mode-two-catalog-subheading">
-                {heading.label}
-              </p>
-              <div className="mode-two-catalog-items">
-                {heading.items.map((item, index) => (
-                  <button
-                    key={`${heading.label}-${item.text}-${index}`}
-                    type="button"
-                    onClick={() => handleInsertToken(item.text)}
-                    className="mode-two-token"
-                  >
-                    {item.text}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   const alphabeticalLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
   const { setContent: setGlobalMenuContent } = useGlobalMenu();
   const alphabeticalLetterSet = useMemo(() => {
@@ -1154,8 +949,11 @@ const ModeTwoWorkspace = () => {
 
   useEffect(() => {
     setGlobalMenuContent(settingsMenu);
-    return () => setGlobalMenuContent(null);
   }, [setGlobalMenuContent, settingsMenu]);
+
+  useEffect(() => {
+    return () => setGlobalMenuContent(null);
+  }, [setGlobalMenuContent]);
 
   useEffect(() => {
     if (sortMode === "alphabetical") {
