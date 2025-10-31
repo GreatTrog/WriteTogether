@@ -192,17 +192,6 @@ const sanitizeForPdf = (html: string) => {
   return doc.body.innerHTML || "";
 };
 
-const triggerDownload = (blobUrl: string, filename: string) => {
-  const anchor = document.createElement("a");
-  anchor.href = blobUrl;
-  anchor.download = filename;
-  anchor.rel = "noopener";
-  anchor.style.display = "none";
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-};
-
 const generatePdfBlob = (definition: TDocumentDefinitions) =>
   new Promise<Blob>((resolve, reject) => {
     try {
@@ -277,6 +266,7 @@ const ModeTwoWorkspace = () => {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [exportMessage, setExportMessage] = useState<string>("");
+  const [exportToast, setExportToast] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState<number>(16);
   const [fontFamily, setFontFamily] = useState<string>(fontOptions[0]);
   const [theme, setTheme] = useState<WorkspaceTheme>("standard");
@@ -284,6 +274,7 @@ const ModeTwoWorkspace = () => {
   const assignments = useTeacherStore((state) => state.assignments);
   const libraryWordBanks = useTeacherStore((state) => state.wordBanks);
   const addSharedFile = useTeacherStore((state) => state.addSharedFile);
+  const exportToastTimerRef = useRef<number | null>(null);
   const { canSpeak, isSpeaking, speak, stop, voices } = useSpeechSynthesis({
     locale: "en-gb",
   });
@@ -693,7 +684,11 @@ const ModeTwoWorkspace = () => {
     let shouldRefocus = false;
     try {
       const now = new Date();
-      const defaultNameSeed = now.toISOString().replace(/[:]/g, "-").replace("T", "_").slice(0, 16);
+      const defaultNameSeed = now
+        .toISOString()
+        .replace(/[:.]/g, "-")
+        .replace("T", "_")
+        .replace("Z", "");
       const suggestedName = `ModeTwo_${defaultNameSeed}.pdf`;
       let resolvedFilename = suggestedName;
       let fileHandle: Awaited<ReturnType<NonNullable<FilePickerWindow["showSaveFilePicker"]>>> | null =
@@ -724,6 +719,12 @@ const ModeTwoWorkspace = () => {
             return;
           }
         }
+      }
+
+      if (!fileHandle) {
+        setExportState("error");
+        setExportMessage("Save dialog unavailable. Please try again.");
+        return;
       }
 
       shouldRefocus = editor?.isFocused ?? false;
@@ -800,28 +801,17 @@ const ModeTwoWorkspace = () => {
       };
 
       const pdfBlob = await generatePdfBlob(docDefinition);
-      let savedLocation = "Downloaded";
-      let downloadUrl: string | null = null;
-      let fileWritten = false;
-
-      if (fileHandle) {
-        try {
-          const writable = await fileHandle.createWritable();
-          await writable.write(pdfBlob);
-          await writable.close();
-          savedLocation = `File picker (${resolvedFilename})`;
-          fileWritten = true;
-        } catch {
-          fileWritten = false;
-        }
+      try {
+        const writable = await fileHandle.createWritable();
+        await writable.write(pdfBlob);
+        await writable.close();
+      } catch {
+        setExportState("error");
+        setExportMessage("We couldn't save the PDF. Please try again.");
+        return;
       }
 
-      if (!fileWritten) {
-        const blobUrl = URL.createObjectURL(pdfBlob);
-        downloadUrl = blobUrl;
-        triggerDownload(blobUrl, resolvedFilename);
-        savedLocation = "Downloaded";
-      }
+      const savedLocation = `File picker (${resolvedFilename})`;
 
       const pdfDataUrl = await blobToDataUrl(pdfBlob);
 
@@ -835,14 +825,17 @@ const ModeTwoWorkspace = () => {
         dataUrl: pdfDataUrl,
       });
 
-      if (downloadUrl) {
-        window.setTimeout(() => {
-          URL.revokeObjectURL(downloadUrl);
-        }, 1500);
-      }
-
       setExportState("success");
       setExportMessage(`Saved and shared ${resolvedFilename}.`);
+      if (exportToastTimerRef.current !== null) {
+        window.clearTimeout(exportToastTimerRef.current);
+        exportToastTimerRef.current = null;
+      }
+      setExportToast("File exported and a copy sent to your teacher.");
+      exportToastTimerRef.current = window.setTimeout(() => {
+        setExportToast(null);
+        exportToastTimerRef.current = null;
+      }, 3500);
     } catch (error) {
       console.error(error);
       setExportState("error");
@@ -1033,12 +1026,19 @@ const ModeTwoWorkspace = () => {
             iconClassName="mode-two-toolbar-icon"
           />
         </div>
-        <EditorContent
-          editor={editor}
-          aria-label="Writing area"
-          className="mode-two-editor"
-          style={{ fontSize: `${fontSize}px`, fontFamily }}
-        />
+        <div className="mode-two-editor-surface">
+          {exportToast ? (
+            <div className="mode-two-export-toast" role="status">
+              {exportToast}
+            </div>
+          ) : null}
+          <EditorContent
+            editor={editor}
+            aria-label="Writing area"
+            className="mode-two-editor"
+            style={{ fontSize: `${fontSize}px`, fontFamily }}
+          />
+        </div>
         <div className="mode-two-action-bar">
             <button
               type="button"
@@ -1188,6 +1188,15 @@ const ModeTwoWorkspace = () => {
   useEffect(() => {
     setGlobalMenuContent(settingsMenu);
   }, [setGlobalMenuContent, settingsMenu]);
+
+  useEffect(() => {
+    return () => {
+      if (exportToastTimerRef.current !== null) {
+        window.clearTimeout(exportToastTimerRef.current);
+        exportToastTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     return () => setGlobalMenuContent(null);

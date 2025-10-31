@@ -193,7 +193,16 @@ export const useTeacherStore = create<TeacherStore>()(
           id: createId(),
         };
         set((state) => ({
-          sharedFiles: [record, ...state.sharedFiles],
+          sharedFiles: [
+            record,
+            ...state.sharedFiles.filter((existing) => {
+              const sameIdentity =
+                existing.filename === record.filename &&
+                existing.username === record.username &&
+                (existing.savedAt === record.savedAt || existing.dataUrl === record.dataUrl);
+              return !sameIdentity;
+            }),
+          ],
         }));
       },
     }),

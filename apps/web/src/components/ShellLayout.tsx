@@ -30,11 +30,7 @@ const ShellLayout = ({ children }: PropsWithChildren) => {
     pupilModes
       .slice()
       .sort((a, b) => b.path.length - a.path.length)
-      .find((mode) =>
-        mode.path === "/pupil"
-          ? normalisedPath === "/pupil"
-          : normalisedPath.startsWith(mode.path),
-      ) ?? pupilModes[0];
+      .find((mode) => normalisedPath.startsWith(mode.path)) ?? pupilModes[0];
 
   useEffect(() => {
     if (!menuContent) {
