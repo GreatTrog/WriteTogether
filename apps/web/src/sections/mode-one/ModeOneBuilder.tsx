@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColourSlot } from "@writetogether/schema";
+import clsx from "clsx";
 import WorkspaceLayout from "../../layouts/WorkspaceLayout";
 import useSpeechSynthesis from "../../hooks/useSpeechSynthesis";
 import { useGlobalMenu } from "../../components/GlobalMenu";
 import VoiceRecorderControls from "../../components/VoiceRecorderControls";
 import { slotLabels, slotOrder, defaultChips } from "./data";
+import "./ModeOneBuilder.css";
 
 type SlotState = Record<
   ColourSlot,
@@ -42,63 +44,6 @@ const punctuationMarks = [
   { symbol: "?", label: "Question" },
   { symbol: "!", label: "Exclamation" },
 ];
-
-const slotPalette: Record<
-  ColourSlot,
-  {
-    chip: string;
-    chipSelected: string;
-    slotIdle: string;
-    slotSelected: string;
-    preview: string;
-  }
-> = {
-  who: {
-    chip: "bg-white text-semantics-who border border-semantics-who/50 hover:bg-semantics-who/10",
-    chipSelected: "bg-semantics-who text-white shadow-md",
-    slotIdle:
-      "border border-dashed border-semantics-who/60 bg-white/60 text-semantics-who",
-    slotSelected:
-      "border border-semantics-who bg-semantics-who/20 text-semantics-who shadow-sm",
-    preview: "bg-semantics-who/25 text-semantics-who",
-  },
-  doing: {
-    chip: "bg-white text-semantics-doing border border-semantics-doing/50 hover:bg-semantics-doing/10",
-    chipSelected: "bg-semantics-doing text-white shadow-md",
-    slotIdle:
-      "border border-dashed border-semantics-doing/60 bg-white/60 text-semantics-doing",
-    slotSelected:
-      "border border-semantics-doing bg-semantics-doing/20 text-semantics-doing shadow-sm",
-    preview: "bg-semantics-doing/25 text-semantics-doing",
-  },
-  what: {
-    chip: "bg-white text-semantics-what border border-semantics-what/50 hover:bg-semantics-what/10",
-    chipSelected: "bg-semantics-what text-slate-900 shadow-md",
-    slotIdle:
-      "border border-dashed border-semantics-what/60 bg-white/60 text-semantics-what",
-    slotSelected:
-      "border border-semantics-what bg-semantics-what/20 text-slate-900 shadow-sm",
-    preview: "bg-semantics-what/25 text-slate-900",
-  },
-  where: {
-    chip: "bg-white text-semantics-where border border-semantics-where/50 hover:bg-semantics-where/10",
-    chipSelected: "bg-semantics-where text-white shadow-md",
-    slotIdle:
-      "border border-dashed border-semantics-where/60 bg-white/60 text-semantics-where",
-    slotSelected:
-      "border border-semantics-where bg-semantics-where/20 text-semantics-where shadow-sm",
-    preview: "bg-semantics-where/25 text-semantics-where",
-  },
-  when: {
-    chip: "bg-white text-semantics-when border border-semantics-when/50 hover:bg-semantics-when/10",
-    chipSelected: "bg-semantics-when text-white shadow-md",
-    slotIdle:
-      "border border-dashed border-semantics-when/60 bg-white/60 text-semantics-when",
-    slotSelected:
-      "border border-semantics-when bg-semantics-when/20 text-semantics-when shadow-sm",
-    preview: "bg-semantics-when/25 text-semantics-when",
-  },
-};
 
 const ModeOneBuilder = () => {
   const { setContent: setGlobalMenuContent } = useGlobalMenu();
@@ -384,8 +329,26 @@ const ModeOneBuilder = () => {
       >
         Clear sentence
       </button>
+      {voices.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Voice
+          </p>
+          <select
+            value={voiceIndex}
+            onChange={(event) => setVoiceIndex(Number(event.target.value))}
+            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+          >
+            {voices.map((voice, index) => (
+              <option key={voice.name} value={index}>
+                {voice.name} ({voice.lang})
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
     </div>
-  ), [handleClear, handleToggleSlot, punctuation, slotState]);
+  ), [handleClear, handleToggleSlot, punctuation, slotState, voiceIndex, voices]);
   const slotBoard = (
     <div className="flex flex-wrap items-center justify-center gap-3">
       {slotOrder.map((slot) => {
@@ -394,7 +357,6 @@ const ModeOneBuilder = () => {
         }
 
         const chipId = slotState[slot].chipId;
-        const palette = slotPalette[slot];
         const chip = chipId
           ? defaultChips.find((item) => item.id === chipId)
           : undefined;
@@ -415,9 +377,12 @@ const ModeOneBuilder = () => {
             onDragLeave={() => setHoverSlot(null)}
             onDrop={(event) => handleDropOnSlot(event, slot)}
             onClick={() => chipId && clearSlot(slot)}
-            className={`relative min-h-[90px] min-w-[140px] rounded-3xl px-4 py-3 text-left transition ${
-              chip ? palette.slotSelected : palette.slotIdle
-            } ${isHovering ? "ring-4 ring-offset-2 ring-semantics-who/40" : ""}`}
+            className={clsx(
+              "mode-one-slot relative min-h-[90px] min-w-[140px] rounded-3xl px-4 py-3 text-left transition",
+              `mode-one-slot--${slot}`,
+              chip ? "is-filled" : "is-empty",
+              isHovering && "is-hover",
+            )}
           >
             <span className="block text-xs font-semibold uppercase tracking-wide">
               {slotLabels[slot]}
@@ -425,7 +390,7 @@ const ModeOneBuilder = () => {
             <span className="mt-2 block text-sm font-semibold leading-snug">
               {chip ? chip.label : "Drop a piece here"}
             </span>
-            <span className="pointer-events-none absolute -bottom-3 left-1/2 h-3 w-6 -translate-x-1/2 rounded-b-full bg-white/70" />
+            <span className="mode-one-slot__indicator" />
           </button>
         );
       })}
@@ -469,12 +434,12 @@ const ModeOneBuilder = () => {
         </div>
       </div>
       <div
-        className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6"
+        className="mode-one-board flex flex-1 items-center justify-center rounded-2xl border border-dashed px-4 py-6"
         style={{ minHeight: "180px" }}
       >
         {slotBoard}
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+      <div className="mode-one-panel rounded-xl px-4 py-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Sentence preview
         </p>
@@ -483,7 +448,10 @@ const ModeOneBuilder = () => {
             {sentenceParts.map((part, index) => (
               <span
                 key={`${part.slot}-${part.text}-${index}`}
-                className={`rounded-md px-3 py-1 ${slotPalette[part.slot].preview}`}
+                className={clsx(
+                  "mode-one-preview-chip",
+                  `mode-one-preview-chip--${part.slot}`,
+                )}
               >
                 {part.text}
               </span>
@@ -505,8 +473,6 @@ const ModeOneBuilder = () => {
         if (!slotState[slot].enabled) {
           return null;
         }
-
-        const palette = slotPalette[slot];
 
         return (
           <div
@@ -531,12 +497,15 @@ const ModeOneBuilder = () => {
                     onDragStart={(event) => handleDragStart(event, chip.id)}
                     onDragEnd={handleDragEnd}
                     disabled={isDisabled}
-                    className={`relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                      isSelected ? palette.chipSelected : palette.chip
-                    } ${isDisabled ? "cursor-not-allowed opacity-50" : ""}`}
+                    className={clsx(
+                      "mode-one-chip relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition",
+                      `mode-one-chip--${slot}`,
+                      isSelected && "is-selected",
+                      isDisabled && "is-disabled",
+                    )}
                   >
                     <span className="block">{chip.label}</span>
-                    <span className="pointer-events-none absolute -right-2 h-4 w-4 rounded-full bg-white/70" />
+                    <span className="mode-one-chip__indicator" />
                   </button>
                 );
               })}
@@ -577,6 +546,17 @@ const ModeOneBuilder = () => {
 };
 
 export default ModeOneBuilder;
+
+
+
+
+
+
+
+
+
+
+
 
 
 

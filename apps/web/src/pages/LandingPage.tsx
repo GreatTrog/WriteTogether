@@ -15,39 +15,67 @@ const LandingPage = () => {
       <section className="grid gap-4 md:grid-cols-3">
         <Link
           to="/pupil/mode-one"
-          className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+          className="group flex h-full flex-col justify-between rounded-2xl border border-orange-200 bg-white p-6 text-left shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:border-orange-300 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
         >
-          <h2 className="text-xl font-semibold text-slate-900">
-            Mode 1: Colourful Semantics
-          </h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Sentence-building scaffolds that guide pupils through who, what,
-            where, and how details.
-          </p>
+          <div>
+            <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-orange-600">
+              Pupil mode 1
+            </span>
+            <h2 className="mt-4 text-xl font-semibold text-orange-900">
+              Colourful Semantics
+            </h2>
+            <p className="mt-2 text-sm text-orange-800">
+              Build sentences step-by-step with colour cues and sentence starters to guide ideas.
+            </p>
+          </div>
+          <span className="mt-6 inline-flex items-center text-sm font-semibold text-orange-700 transition group-hover:text-orange-800">
+            Start Mode 1
+            <svg className="ml-2 h-4 w-4" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5.5 3.5L10 8l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
         </Link>
         <Link
           to="/pupil/mode-two"
-          className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+          className="group flex h-full flex-col justify-between rounded-2xl border border-sky-200 bg-white p-6 text-left shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:border-sky-300 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
         >
-          <h2 className="text-xl font-semibold text-slate-900">
-            Mode 2: Click-to-Compose
-          </h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Mix and match prompts to build sentences quickly with structured
-            choices.
-          </p>
+          <div>
+            <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-600">
+              Pupil mode 2
+            </span>
+            <h2 className="mt-4 text-xl font-semibold text-sky-900">
+              Click-to-Compose
+            </h2>
+            <p className="mt-2 text-sm text-sky-800">
+              Craft paragraphs by selecting words and phrases, with live previews and export tools.
+            </p>
+          </div>
+          <span className="mt-6 inline-flex items-center text-sm font-semibold text-sky-700 transition group-hover:text-sky-800">
+            Start Mode 2
+            <svg className="ml-2 h-4 w-4" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5.5 3.5L10 8l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
         </Link>
         <Link
           to="/teacher"
-          className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+          className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
         >
-          <h2 className="text-xl font-semibold text-slate-900">
-            Teacher Console
-          </h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Manage classes, assignments, word banks, and review analytics to
-            support evidence-informed teaching.
-          </p>
+          <div>
+            <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+              Teacher console
+            </span>
+            <h2 className="mt-4 text-xl font-semibold text-slate-900">Teacher Console</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Manage classes, assignments, word banks, and review analytics to support evidence-informed teaching.
+            </p>
+          </div>
+          <span className="mt-6 inline-flex items-center text-sm font-semibold text-slate-700 transition group-hover:text-slate-900">
+            Enter teacher console
+            <svg className="ml-2 h-4 w-4" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5.5 3.5L10 8l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
         </Link>
       </section>
     </div>

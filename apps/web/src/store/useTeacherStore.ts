@@ -27,10 +27,22 @@ export type TeacherAssignment = Assignment & {
   catalogWordBanks?: Record<string, WordBankSnapshot>;
 };
 
+export type SharedFileRecord = {
+  id: string;
+  filename: string;
+  username: string;
+  savedAt: string;
+  location: string;
+  sizeBytes: number;
+  wordCount: number;
+  dataUrl: string;
+};
+
 type TeacherStore = {
   classes: ClassGroup[];
   wordBanks: ModeTwoBank[];
   assignments: TeacherAssignment[];
+  sharedFiles: SharedFileRecord[];
   createClass: (name: string, phase: ClassGroup["phase"]) => void;
   addPupil: (classId: string, displayName: string, needs: string[]) => void;
   createAssignment: (
@@ -41,12 +53,15 @@ type TeacherStore = {
   addWordBank: (
     bank: Omit<WordBank, "id"> & { category: ModeTwoBank["category"]; topic: ModeTwoBank["topic"] },
   ) => void;
+  addSharedFile: (
+    file: Omit<SharedFileRecord, "id">,
+  ) => void;
 };
 
 // Seed the preview with scaffolding so the UI has meaningful sample data.
 const defaultStore: Pick<
   TeacherStore,
-  "classes" | "wordBanks" | "assignments"
+  "classes" | "wordBanks" | "assignments" | "sharedFiles"
 > = {
   classes: [
     {
@@ -95,6 +110,7 @@ const defaultStore: Pick<
       catalogWordBanks: {},
     },
   ],
+  sharedFiles: [],
 };
 
 function pinnedBankIds() {
@@ -170,6 +186,25 @@ export const useTeacherStore = create<TeacherStore>()(
           ],
         }));
       },
+
+      addSharedFile: (file) => {
+        const record: SharedFileRecord = {
+          ...file,
+          id: createId(),
+        };
+        set((state) => ({
+          sharedFiles: [
+            record,
+            ...state.sharedFiles.filter((existing) => {
+              const sameIdentity =
+                existing.filename === record.filename &&
+                existing.username === record.username &&
+                (existing.savedAt === record.savedAt || existing.dataUrl === record.dataUrl);
+              return !sameIdentity;
+            }),
+          ],
+        }));
+      },
     }),
     {
       name: "writetogether-teacher-store",
@@ -178,6 +213,7 @@ export const useTeacherStore = create<TeacherStore>()(
         classes: state.classes,
         assignments: state.assignments,
         wordBanks: state.wordBanks,
+        sharedFiles: state.sharedFiles,
       }),
       version: 1,
       // Convert serialized dates back into Date instances once hydration finishes.
@@ -191,6 +227,7 @@ export const useTeacherStore = create<TeacherStore>()(
             ...assignment,
             dueAt: assignment.dueAt ? new Date(assignment.dueAt) : null,
           })),
+          sharedFiles: state.sharedFiles ?? existing.sharedFiles,
         }));
       },
     },

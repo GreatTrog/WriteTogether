@@ -290,6 +290,29 @@
   box-shadow: var(--mode-two-shadow-inner);
 }
 
+.mode-two-editor-surface {
+  position: relative;
+}
+
+.mode-two-export-toast {
+  position: absolute;
+  top: var(--mode-two-spacing-sm);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mode-two-spacing-sm) var(--mode-two-spacing-lg);
+  background-color: rgba(15, 23, 42, 0.92);
+  color: #ffffff;
+  border-radius: var(--mode-two-radius-md);
+  font-size: var(--mode-two-font-size-sm);
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.25);
+  pointer-events: none;
+}
+
 .mode-two-editor:focus-within {
   outline: 2px solid var(--mode-two-focus-outline);
   outline-offset: 2px;
