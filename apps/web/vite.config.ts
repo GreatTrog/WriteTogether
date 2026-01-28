@@ -3,7 +3,8 @@ import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import path from "node:path";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  base: command === "build" ? "./" : "/",
   plugins: [react(), tsconfigPaths()],
   resolve: {
     alias: {
@@ -23,4 +24,4 @@ export default defineConfig({
     port: 5173,
     open: true,
   },
-});
+}));
