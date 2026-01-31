@@ -253,7 +253,7 @@
   border: 1px solid var(--mode-two-color-border);
   border-radius: var(--mode-two-radius-md);
   background-color: var(--mode-two-color-panel);
-  padding: 0.1rem;
+  padding: 0;
   font-size: var(--mode-two-font-size-sm);
   font-weight: 600;
   color: var(--mode-two-color-primary);
@@ -261,7 +261,7 @@
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   width: 36px;
   height: 30px;
 }
@@ -273,6 +273,7 @@
 .mode-two-toolbar-icon {
   width: 24px;
   height: 24px;
+  display: block;
 }
 
 .mode-two-editor {
