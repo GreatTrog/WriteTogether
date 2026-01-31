@@ -76,7 +76,8 @@ Legend:
 ## Later improvements (parking lot)
 
 - [ ] Break Mode Two into smaller components (editor, banks, export, toolbar)  
-  File: `apps/web/src/sections/mode-two/ModeTwoWorkspace.tsx`
+  File: `apps/web/src/sections/mode-two/ModeTwoWorkspace.tsx`  
+  Plan: `plans/Later-break-mode-two-components.md`
 
 - [ ] Add API wiring with real persistence and teacher auth  
   Files: `apps/server/src/*`, `apps/web/src/sections/teacher/*`
