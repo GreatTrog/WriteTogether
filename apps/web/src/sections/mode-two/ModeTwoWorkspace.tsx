@@ -227,7 +227,7 @@ const ModeTwoWorkspace = () => {
   }, [activeDraftId, draftTitle]);
 
   const archiveDraft = useCallback(async () => {
-    if (!supabase || !activeDraftId) {
+    if (!supabase || !activeDraftId || !pupilId) {
       return;
     }
     const confirmed = window.confirm("Archive this draft? You can restore later.");
@@ -237,7 +237,8 @@ const ModeTwoWorkspace = () => {
     const { error } = await supabase
       .from("pupil_drafts")
       .update({ archived: true, updated_at: new Date().toISOString() })
-      .eq("id", activeDraftId);
+      .eq("id", activeDraftId)
+      .eq("pupil_id", pupilId);
     if (error) {
       console.error("Archive draft failed:", error);
       setDraftStatus("Unable to archive draft.");
@@ -249,10 +250,10 @@ const ModeTwoWorkspace = () => {
     setDraftHtml("<p></p>");
     setDraftStatus("Draft archived.");
     await loadDrafts();
-  }, [activeDraftId, loadDrafts]);
+  }, [activeDraftId, loadDrafts, pupilId]);
 
   const deleteDraft = useCallback(async () => {
-    if (!supabase || !activeDraftId) {
+    if (!supabase || !activeDraftId || !pupilId) {
       return;
     }
     const confirmed = window.confirm(
@@ -264,7 +265,8 @@ const ModeTwoWorkspace = () => {
     const { error } = await supabase
       .from("pupil_drafts")
       .delete()
-      .eq("id", activeDraftId);
+      .eq("id", activeDraftId)
+      .eq("pupil_id", pupilId);
     if (error) {
       console.error("Delete draft failed:", error);
       setDraftStatus("Unable to delete draft.");
@@ -276,7 +278,7 @@ const ModeTwoWorkspace = () => {
     setDraftHtml("<p></p>");
     setDraftStatus("Draft deleted.");
     await loadDrafts();
-  }, [activeDraftId, loadDrafts]);
+  }, [activeDraftId, loadDrafts, pupilId]);
 
   const selectDraft = useCallback(
     (id: string) => {
@@ -311,6 +313,7 @@ const ModeTwoWorkspace = () => {
       draftHtml,
       plainText,
       addSharedFile,
+      draftTitle,
     });
 
   useEffect(() => {

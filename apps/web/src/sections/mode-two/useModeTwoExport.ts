@@ -171,6 +171,7 @@ type UseModeTwoExportOptions = {
   draftHtml: string;
   plainText: string;
   addSharedFile: (entry: Omit<SharedFileRecord, "id">) => void;
+  draftTitle?: string;
 };
 
 type UseModeTwoExportResult = {
@@ -247,11 +248,18 @@ const persistSharedFileRecord = async (
   return true;
 };
 
+const sanitizeFilename = (value: string) =>
+  value
+    .trim()
+    .replace(/[^\w.\-]+/g, "_")
+    .replace(/_{2,}/g, "_");
+
 const useModeTwoExport = ({
   editor,
   draftHtml,
   plainText,
   addSharedFile,
+  draftTitle,
 }: UseModeTwoExportOptions): UseModeTwoExportResult => {
   const [exportState, setExportState] = useState<ExportState>("idle");
   const [exportMessage, setExportMessage] = useState<string>("");
@@ -286,11 +294,19 @@ const useModeTwoExport = ({
 
       const pupilLogin = await resolvePupilLogin();
       if (pupilLogin?.pupilId) {
-        const safeUsername = pupilLogin.username
-          ? slugify(pupilLogin.username) || "pupil"
-          : "pupil";
-        const baseName = `${safeUsername}_${formatExportTimestamp(now)}`;
-        resolvedFilename = `${baseName}.pdf`;
+        const titleSeed = draftTitle?.trim() ?? "";
+        if (titleSeed) {
+          const sanitized = sanitizeFilename(titleSeed);
+          resolvedFilename = sanitized.toLowerCase().endsWith(".pdf")
+            ? sanitized
+            : `${sanitized}.pdf`;
+        } else {
+          const safeUsername = pupilLogin.username
+            ? slugify(pupilLogin.username) || "pupil"
+            : "pupil";
+          const baseName = `${safeUsername}_${formatExportTimestamp(now)}`;
+          resolvedFilename = `${baseName}.pdf`;
+        }
       } else {
         const fallbackSeed = now
           .toISOString()
