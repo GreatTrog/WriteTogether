@@ -64,15 +64,21 @@ const useSpeechSynthesis = (options?: { locale?: string }) => {
       return false;
     }
 
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return false;
+    }
+
     if (utteranceRef.current) {
       window.speechSynthesis.cancel();
     }
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(trimmed);
     utterance.rate = options?.rate ?? 1;
     utterance.pitch = options?.pitch ?? 1;
     if (options?.voice) {
       utterance.voice = options.voice;
+      utterance.lang = options.voice.lang ?? utterance.lang;
     }
 
     utterance.onstart = () => setIsSpeaking(true);
@@ -80,7 +86,11 @@ const useSpeechSynthesis = (options?: { locale?: string }) => {
     utterance.onerror = () => setIsSpeaking(false);
 
     utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
+    // Some browsers need a resume + microtask delay after cancel.
+    window.speechSynthesis.resume();
+    window.setTimeout(() => {
+      window.speechSynthesis.speak(utterance);
+    }, 0);
     return true;
   }, []);
 
