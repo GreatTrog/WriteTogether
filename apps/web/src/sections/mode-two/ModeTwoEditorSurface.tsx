@@ -12,6 +12,18 @@ type ModeTwoEditorSurfaceProps = {
   onSpeakDraft: () => void;
   onClearDraft: () => void;
   onExportPreview: () => void;
+  draftsEnabled: boolean;
+  draftOptions: Array<{
+    id: string;
+    title: string;
+    updatedAt: string;
+  }>;
+  activeDraftId: string | null;
+  draftTitle: string;
+  draftStatus: string | null;
+  onSelectDraft: (id: string) => void;
+  onCreateDraft: () => void;
+  onRenameDraft: () => void;
 };
 
 const ModeTwoEditorSurface = ({
@@ -26,11 +38,61 @@ const ModeTwoEditorSurface = ({
   onSpeakDraft,
   onClearDraft,
   onExportPreview,
+  draftsEnabled,
+  draftOptions,
+  activeDraftId,
+  draftTitle,
+  draftStatus,
+  onSelectDraft,
+  onCreateDraft,
+  onRenameDraft,
 }: ModeTwoEditorSurfaceProps) => (
   <div className="mode-two-editor-surface">
     {exportToast ? (
       <div className="mode-two-export-toast" role="status">
         {exportToast}
+      </div>
+    ) : null}
+    {draftsEnabled ? (
+      <div className="mode-two-draft-bar">
+        <div className="mode-two-draft-bar__left">
+          <label className="mode-two-draft-label" htmlFor="mode-two-draft-picker">
+            Draft
+          </label>
+          <select
+            id="mode-two-draft-picker"
+            className="mode-two-select mode-two-draft-select"
+            value={activeDraftId ?? ""}
+            onChange={(event) => onSelectDraft(event.target.value)}
+          >
+            {draftOptions.map((draft) => (
+              <option key={draft.id} value={draft.id}>
+                {draft.title}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="mode-two-draft-button"
+            onClick={onCreateDraft}
+          >
+            New
+          </button>
+          <button
+            type="button"
+            className="mode-two-draft-button"
+            onClick={onRenameDraft}
+            disabled={!activeDraftId}
+          >
+            Rename
+          </button>
+        </div>
+        <div className="mode-two-draft-bar__right">
+          <span className="mode-two-draft-title">{draftTitle}</span>
+          {draftStatus ? (
+            <span className="mode-two-draft-status">{draftStatus}</span>
+          ) : null}
+        </div>
       </div>
     ) : null}
     <EditorContent

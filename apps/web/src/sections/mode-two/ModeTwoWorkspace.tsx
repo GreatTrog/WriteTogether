@@ -10,6 +10,8 @@ import { useTeacherStore } from "../../store/useTeacherStore";
 import { useWorkspaceSettings } from "../../store/useWorkspaceSettings";
 import { type WordBankSnapshot } from "../../services/wordBankCatalog";
 import { useGlobalMenu } from "../../components/GlobalMenu";
+import useSupabaseSession from "../../hooks/useSupabaseSession";
+import { supabase } from "../../services/supabaseClient";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -45,6 +47,11 @@ const canonicalCategoryWeight = canonicalCategoryOrder.reduce<Record<string, num
 );
 
 const ModeTwoWorkspace = () => {
+  const { user } = useSupabaseSession();
+  const isPupilSession =
+    Boolean(user) && user?.user_metadata?.role === "pupil";
+  const pupilId = user?.user_metadata?.pupil_id as string | undefined;
+
   // Hydrate state from localStorage so drafts, theme, and filters survive reloads.
   const [topicFilter, setTopicFilter] = useState<TopicFilter>("all");
   const [sortMode, setSortMode] = useState<"class" | "alphabetical">("class");
@@ -54,6 +61,19 @@ const ModeTwoWorkspace = () => {
     }
     return window.localStorage.getItem(draftStorageKey) ?? "";
   });
+  const [drafts, setDrafts] = useState<
+    Array<{
+      id: string;
+      title: string;
+      contentHtml: string;
+      updatedAt: string;
+    }>
+  >([]);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState<string>("");
+  const [draftStatus, setDraftStatus] = useState<string | null>(null);
+  const lastSavedHtmlRef = useRef<string>("");
+  const autosaveTimerRef = useRef<number | null>(null);
   const [fontSize, setFontSize] = useState<number>(16);
   const [fontFamily, setFontFamily] = useState<string>(fontOptions[0]);
   const theme = useWorkspaceSettings((state) => state.theme);
@@ -86,6 +106,124 @@ const ModeTwoWorkspace = () => {
       },
     },
     [],
+  );
+
+  const createDraft = useCallback(async () => {
+    if (!supabase || !isPupilSession || !pupilId) {
+      return;
+    }
+    const now = new Date();
+    const title = `Draft ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+    const { data, error } = await supabase
+      .from("pupil_drafts")
+      .insert({
+        pupil_id: pupilId,
+        title,
+        content_html: "",
+        content_text: "",
+        word_count: 0,
+      })
+      .select("id,title,content_html,updated_at")
+      .single();
+    if (error || !data) {
+      setDraftStatus("Unable to create draft.");
+      return;
+    }
+    const entry = {
+      id: data.id,
+      title: data.title,
+      contentHtml: data.content_html ?? "",
+      updatedAt: data.updated_at ?? now.toISOString(),
+    };
+    setDrafts((prev) => [entry, ...prev]);
+    setActiveDraftId(entry.id);
+    setDraftTitle(entry.title);
+    setDraftHtml(entry.contentHtml || "<p></p>");
+    lastSavedHtmlRef.current = entry.contentHtml || "";
+    setDraftStatus("New draft created.");
+  }, [isPupilSession, pupilId]);
+
+  const loadDrafts = useCallback(async () => {
+    if (!supabase || !isPupilSession || !pupilId) {
+      return;
+    }
+    setDraftStatus("Loading drafts...");
+    const { data, error } = await supabase
+      .from("pupil_drafts")
+      .select("id,title,content_html,updated_at")
+      .eq("pupil_id", pupilId)
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      setDraftStatus("Unable to load drafts.");
+      return;
+    }
+
+    const nextDrafts =
+      data?.map((entry) => ({
+        id: entry.id,
+        title: entry.title,
+        contentHtml: entry.content_html ?? "",
+        updatedAt: entry.updated_at ?? new Date().toISOString(),
+      })) ?? [];
+
+    setDrafts(nextDrafts);
+    if (nextDrafts.length > 0) {
+      const first = nextDrafts[0];
+      setActiveDraftId(first.id);
+      setDraftTitle(first.title);
+      setDraftHtml(first.contentHtml || "<p></p>");
+      lastSavedHtmlRef.current = first.contentHtml || "";
+      setDraftStatus("Draft loaded.");
+    } else {
+      setDraftStatus("No drafts yet.");
+      await createDraft();
+    }
+  }, [createDraft, isPupilSession, pupilId]);
+
+  const renameDraft = useCallback(async () => {
+    if (!supabase || !activeDraftId) {
+      return;
+    }
+    const nextName = window.prompt("Rename draft:", draftTitle || "My draft");
+    if (!nextName) {
+      return;
+    }
+    const trimmed = nextName.trim();
+    if (!trimmed) {
+      return;
+    }
+    const { error } = await supabase
+      .from("pupil_drafts")
+      .update({ title: trimmed, updated_at: new Date().toISOString() })
+      .eq("id", activeDraftId);
+    if (error) {
+      setDraftStatus("Unable to rename draft.");
+      return;
+    }
+    setDraftTitle(trimmed);
+    setDrafts((prev) =>
+      prev.map((draft) =>
+        draft.id === activeDraftId
+          ? { ...draft, title: trimmed }
+          : draft,
+      ),
+    );
+  }, [activeDraftId, draftTitle]);
+
+  const selectDraft = useCallback(
+    (id: string) => {
+      const next = drafts.find((draft) => draft.id === id);
+      if (!next) {
+        return;
+      }
+      setActiveDraftId(next.id);
+      setDraftTitle(next.title);
+      setDraftHtml(next.contentHtml || "<p></p>");
+      lastSavedHtmlRef.current = next.contentHtml || "";
+      setDraftStatus("Draft loaded.");
+    },
+    [drafts],
   );
 
   const plainText = useMemo(() => {
@@ -153,11 +291,68 @@ const ModeTwoWorkspace = () => {
   }, [voices, voiceIndex]);
 
   useEffect(() => {
+    if (isPupilSession) {
+      return;
+    }
     const id = window.setTimeout(() => {
       window.localStorage.setItem(draftStorageKey, draftHtml);
     }, 300);
     return () => window.clearTimeout(id);
-  }, [draftHtml]);
+  }, [draftHtml, isPupilSession]);
+
+  useEffect(() => {
+    if (!isPupilSession || !pupilId) {
+      return;
+    }
+    void loadDrafts();
+  }, [isPupilSession, pupilId, loadDrafts]);
+
+  useEffect(() => {
+    if (!isPupilSession || !activeDraftId || !supabase) {
+      return;
+    }
+    if (draftHtml === lastSavedHtmlRef.current) {
+      return;
+    }
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+    }
+    autosaveTimerRef.current = window.setTimeout(async () => {
+      setDraftStatus("Saving...");
+      const trimmedText = plainText.trim();
+      const wordCount = trimmedText ? trimmedText.split(/\s+/).length : 0;
+      const { error } = await supabase
+        .from("pupil_drafts")
+        .update({
+          title: draftTitle || "Untitled",
+          content_html: draftHtml,
+          content_text: trimmedText,
+          word_count: wordCount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", activeDraftId);
+      if (error) {
+        setDraftStatus("Unable to save.");
+        return;
+      }
+      lastSavedHtmlRef.current = draftHtml;
+      setDraftStatus("Saved.");
+      setDrafts((prev) =>
+        prev.map((draft) =>
+          draft.id === activeDraftId
+            ? { ...draft, contentHtml: draftHtml, title: draftTitle || draft.title }
+            : draft,
+        ),
+      );
+    }, 1500);
+
+    return () => {
+      if (autosaveTimerRef.current !== null) {
+        window.clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+    };
+  }, [activeDraftId, draftHtml, draftTitle, isPupilSession, plainText]);
 
   const activeAssignment = useMemo(() => {
     const modeTwoAssignments = assignments.filter(
@@ -489,6 +684,14 @@ const ModeTwoWorkspace = () => {
             onSpeakDraft={handleSpeakDraft}
             onClearDraft={handleClearDraft}
             onExportPreview={handleExportPreview}
+            draftsEnabled={isPupilSession}
+            draftOptions={drafts}
+            activeDraftId={activeDraftId}
+            draftTitle={draftTitle}
+            draftStatus={draftStatus}
+            onSelectDraft={selectDraft}
+            onCreateDraft={createDraft}
+            onRenameDraft={renameDraft}
           />
         </div>
       </div>
