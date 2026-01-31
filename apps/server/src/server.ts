@@ -11,7 +11,7 @@ const app = express();
 app.use(helmet());
 const resolvedOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:5173")
   .split(",")
-  .map((value) => value.trim())
+  .map((value) => value.trim().replace(/\/$/, ""))
   .filter(Boolean);
 
 app.use(
