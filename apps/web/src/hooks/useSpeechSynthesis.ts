@@ -58,6 +58,27 @@ const useSpeechSynthesis = (options?: { locale?: string }) => {
     };
   }, []);
 
+  const localVoices = useMemo(
+    () => voices.filter((voice) => voice.localService),
+    [voices],
+  );
+
+  const resolveFallbackVoice = useCallback(
+    (preferred?: SpeechSynthesisVoice) => {
+      if (!preferred || localVoices.length === 0) {
+        return null;
+      }
+      const preferredLang = preferred.lang?.toLowerCase() ?? "";
+      const matchingLocal = localVoices.find((voice) =>
+        preferredLang
+          ? voice.lang?.toLowerCase().startsWith(preferredLang)
+          : false,
+      );
+      return matchingLocal ?? localVoices[0] ?? null;
+    },
+    [localVoices],
+  );
+
   const speak = useCallback((text: string, options?: SpeechOptions) => {
     // Cancel any existing utterance so new playback always starts cleanly.
     if (!supportsSpeech()) {
@@ -74,22 +95,64 @@ const useSpeechSynthesis = (options?: { locale?: string }) => {
       synth.cancel();
     }
 
-    const utterance = new SpeechSynthesisUtterance(trimmed);
-    utterance.rate = options?.rate ?? 1;
-    utterance.pitch = options?.pitch ?? 1;
-    if (options?.voice) {
-      utterance.voice = options.voice;
-      utterance.lang = options.voice.lang ?? utterance.lang;
-    }
+    const fallbackVoice = resolveFallbackVoice(options?.voice);
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    const play = (
+      voice?: SpeechSynthesisVoice,
+      allowFallback = true,
+    ) => {
+      let started = false;
+      let fallbackTimer: number | undefined;
 
-    utteranceRef.current = utterance;
-    synth.speak(utterance);
+      const utterance = new SpeechSynthesisUtterance(trimmed);
+      utterance.rate = options?.rate ?? 1;
+      utterance.pitch = options?.pitch ?? 1;
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang ?? utterance.lang;
+      }
+
+      utterance.onstart = () => {
+        started = true;
+        if (fallbackTimer) {
+          window.clearTimeout(fallbackTimer);
+        }
+        setIsSpeaking(true);
+      };
+      utterance.onend = () => {
+        if (fallbackTimer) {
+          window.clearTimeout(fallbackTimer);
+        }
+        setIsSpeaking(false);
+      };
+      utterance.onerror = () => {
+        if (fallbackTimer) {
+          window.clearTimeout(fallbackTimer);
+        }
+        if (allowFallback && fallbackVoice && voice !== fallbackVoice) {
+          synth.cancel();
+          play(fallbackVoice, false);
+          return;
+        }
+        setIsSpeaking(false);
+      };
+
+      utteranceRef.current = utterance;
+      if (allowFallback && fallbackVoice && voice && !voice.localService) {
+        fallbackTimer = window.setTimeout(() => {
+          if (started) {
+            return;
+          }
+          synth.cancel();
+          play(fallbackVoice, false);
+        }, 1200);
+      }
+      synth.speak(utterance);
+    };
+
+    play(options?.voice);
     return true;
-  }, []);
+  }, [resolveFallbackVoice]);
 
   const stop = useCallback(() => {
     if (!supportsSpeech()) {
