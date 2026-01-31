@@ -78,7 +78,7 @@ const resolvePupilLogin = async () => {
     .single();
   if (error) {
     console.warn("Unable to resolve pupil username:", error.message);
-    return null;
+    return { pupilId, username: null };
   }
   return {
     pupilId,
@@ -278,11 +278,11 @@ const useModeTwoExport = ({
         null;
 
       const pupilLogin = await resolvePupilLogin();
-      const baseName = pupilLogin?.username
-        ? `${slugify(pupilLogin.username) || "pupil"}_${formatExportTimestamp(now)}`
-        : "";
-
-      if (pupilLogin?.username) {
+      if (pupilLogin?.pupilId) {
+        const safeUsername = pupilLogin.username
+          ? slugify(pupilLogin.username) || "pupil"
+          : "pupil";
+        const baseName = `${safeUsername}_${formatExportTimestamp(now)}`;
         resolvedFilename = `${baseName}.pdf`;
       } else {
         const fallbackSeed = now
