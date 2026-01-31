@@ -709,24 +709,13 @@ const ModeTwoWorkspace = () => {
           {isPupilSession ? (
             <div className="mode-two-draft-bar">
               <div className="mode-two-draft-bar__left">
-                <label className="mode-two-draft-label" htmlFor="mode-two-draft-picker">
+                <label className="mode-two-draft-label" htmlFor="mode-two-file-menu">
                   File
                 </label>
                 <select
-                  id="mode-two-draft-picker"
-                  className="mode-two-select mode-two-draft-select"
-                  value={activeDraftId ?? ""}
-                  onChange={(event) => selectDraft(event.target.value)}
-                >
-                  {drafts.map((draft) => (
-                    <option key={draft.id} value={draft.id}>
-                      {draft.title}
-                    </option>
-                  ))}
-                </select>
-                <select
+                  id="mode-two-file-menu"
                   className="mode-two-draft-action"
-                  aria-label="File actions"
+                  aria-label="File menu"
                   value=""
                   onChange={(event) => {
                     const action = event.target.value;
@@ -744,10 +733,22 @@ const ModeTwoWorkspace = () => {
                   }}
                   disabled={!activeDraftId}
                 >
-                  <option value="">Actions</option>
+                  <option value="">File</option>
                   <option value="new">New</option>
                   <option value="rename">Rename</option>
                   <option value="delete">Delete</option>
+                </select>
+                <select
+                  id="mode-two-draft-picker"
+                  className="mode-two-select mode-two-draft-select"
+                  value={activeDraftId ?? ""}
+                  onChange={(event) => selectDraft(event.target.value)}
+                >
+                  {drafts.map((draft) => (
+                    <option key={draft.id} value={draft.id}>
+                      {draft.title}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="mode-two-draft-bar__right">
