@@ -1,6 +1,12 @@
-import { FormEvent, useState } from "react";
-
-import { useTeacherStore } from "../../store/useTeacherStore";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  archiveClass,
+  createClass,
+  deleteClass,
+  fetchClassesWithPupils,
+  updateClass,
+  type TeacherClass,
+} from "../../services/teacherData";
 
 const classPhases = [
   { label: "KS1", value: "KS1" },
@@ -10,40 +16,50 @@ const classPhases = [
 
 // Lightweight CRM for the pilot so teachers can trial roster flows.
 const ClassesPanel = () => {
-  const { classes, createClass, addPupil } = useTeacherStore();
-
   const [className, setClassName] = useState("");
   const [phase, setPhase] = useState<"KS1" | "LKS2" | "UKS2">("LKS2");
-  const [pupilName, setPupilName] = useState("");
-  const [support, setSupport] = useState("");
-  const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  const [classes, setClasses] = useState<TeacherClass[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const refresh = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const classData = await fetchClassesWithPupils();
+      setClasses(classData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load classes.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
 
   // Quick helper for adding a showcase class with minimal validation.
-  const handleCreateClass = (event: FormEvent) => {
+  const handleCreateClass = async (event: FormEvent) => {
     event.preventDefault();
     if (!className.trim()) {
       return;
     }
 
-    createClass(className.trim(), phase);
-    setClassName("");
-  };
-
-  // Mirrors the live product flow where teachers capture pupil needs on the fly.
-  const handleAddPupil = (event: FormEvent) => {
-    event.preventDefault();
-    if (!selectedClass || !pupilName.trim()) {
-      return;
+    try {
+      await createClass(className.trim(), phase);
+      setClassName("");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create class.");
     }
-
-    addPupil(
-      selectedClass,
-      pupilName.trim(),
-      support ? [support.trim()] : [],
-    );
-    setPupilName("");
-    setSupport("");
   };
+
+  const totalPupils = useMemo(
+    () => classes.reduce((sum, group) => sum + group.pupils.length, 0),
+    [classes],
+  );
 
   return (
     <div className="space-y-6">
@@ -91,19 +107,21 @@ const ClassesPanel = () => {
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Class overview
-            </h2>
+            <h2 className="text-lg font-semibold text-slate-900">Classes</h2>
             <p className="text-xs uppercase tracking-wide text-slate-500">
               Join codes update automatically
             </p>
           </div>
           <div className="ml-auto text-xs text-slate-500">
-            {classes.length} classes
+            {classes.length} classes • {totalPupils} pupils
           </div>
         </div>
 
-        {classes.length === 0 ? (
+        {loading ? (
+          <p className="mt-4 text-sm text-slate-600">Loading classes...</p>
+        ) : error ? (
+          <p className="mt-4 text-sm text-rose-600">{error}</p>
+        ) : classes.length === 0 ? (
           <p className="mt-4 text-sm text-slate-600">
             Create your first class using the form above.
           </p>
@@ -115,109 +133,154 @@ const ClassesPanel = () => {
                 className="rounded-md border border-slate-200 p-4"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <div>
-                    <p className="text-lg font-semibold text-slate-900">
-                      {classGroup.name}
-                    </p>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">
-                      {classGroup.phase} - {classGroup.pupils.length} pupils
-                    </p>
-                  </div>
-                  <span className="ml-auto rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
-                    Join code: {classGroup.joinCode}
-                  </span>
-                </div>
-
-                <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Pupil profiles
-                    </p>
-                    <ul className="mt-2 space-y-2 text-sm text-slate-700">
-                      {classGroup.pupils.length === 0 ? (
-                        <li className="rounded-md bg-slate-50 px-3 py-2 text-slate-500">
-                          No pupils yet - add from the form.
-                        </li>
-                      ) : (
-                        classGroup.pupils.map((pupil) => (
-                          <li
-                            key={pupil.id}
-                            className="rounded-md bg-slate-50 px-3 py-2"
-                          >
-                            <p className="font-medium text-slate-800">
-                              {pupil.displayName}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              Mode:{" "}
-                              {pupil.currentMode === "mode1"
-                                ? "Colourful Semantics"
-                                : "Click-to-Compose"}
-                            </p>
-                            {pupil.needs.length > 0 && (
-                              <p className="text-xs text-slate-500">
-                                Support: {pupil.needs.join(", ")}
-                              </p>
-                            )}
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  </div>
-
-                  <form
-                    onSubmit={handleAddPupil}
-                    className="rounded-md bg-slate-50 p-3"
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Quick add pupil
-                    </p>
-                    <label className="mt-2 block text-xs font-medium text-slate-600">
-                      Class
-                      <select
-                        value={selectedClass ?? ""}
-                        onChange={(event) =>
-                          setSelectedClass(event.target.value || null)
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={classGroup.name}
+                      onChange={(event) =>
+                        setClasses((current) =>
+                          current.map((item) =>
+                            item.id === classGroup.id
+                              ? { ...item, name: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                      onBlur={async () => {
+                        try {
+                          setBusyId(classGroup.id);
+                          await updateClass(classGroup.id, { name: classGroup.name });
+                        } catch (err) {
+                          setError(
+                            err instanceof Error
+                              ? err.message
+                              : "Unable to update class.",
+                          );
+                        } finally {
+                          setBusyId(null);
                         }
-                        required
-                        className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+                      }}
+                      className="text-lg font-semibold text-slate-900 outline-none"
+                    />
+                    <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
+                      <select
+                        value={classGroup.phase}
+                        onChange={async (event) => {
+                          const nextPhase = event.target.value as typeof phase;
+                          setClasses((current) =>
+                            current.map((item) =>
+                              item.id === classGroup.id
+                                ? { ...item, phase: nextPhase }
+                                : item,
+                            ),
+                          );
+                          try {
+                            setBusyId(classGroup.id);
+                            await updateClass(classGroup.id, { phase: nextPhase });
+                          } catch (err) {
+                            setError(
+                              err instanceof Error
+                                ? err.message
+                                : "Unable to update class.",
+                            );
+                          } finally {
+                            setBusyId(null);
+                          }
+                        }}
+                        className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700"
                       >
-                        <option value="">Choose class</option>
-                        {classes.map((group) => (
-                          <option key={group.id} value={group.id}>
-                            {group.name}
+                        {classPhases.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
                           </option>
                         ))}
                       </select>
-                    </label>
-                    <label className="mt-2 block text-xs font-medium text-slate-600">
-                      Pupil name (pseudonym)
-                      <input
-                        type="text"
-                        value={pupilName}
-                        onChange={(event) => setPupilName(event.target.value)}
-                        placeholder="e.g. Pupil D"
-                        required
-                        className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
-                      />
-                    </label>
-                    <label className="mt-2 block text-xs font-medium text-slate-600">
-                      Support focus (optional)
-                      <input
-                        type="text"
-                        value={support}
-                        onChange={(event) => setSupport(event.target.value)}
-                        placeholder="e.g. fronted adverbials"
-                        className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
-                      />
-                    </label>
+                      <span>- {classGroup.pupils.length} pupils</span>
+                      {busyId === classGroup.id && (
+                        <span className="text-slate-400">Saving...</span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="ml-auto rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
+                    Join code: {classGroup.join_code}
+                  </span>
+                  <div className="flex flex-wrap gap-2">
                     <button
-                      type="submit"
-                      className="mt-3 w-full rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600"
+                      type="button"
+                      onClick={async () => {
+                        if (
+                          !window.confirm(
+                            `Archive ${classGroup.name}? Pupils will be archived too.`,
+                          )
+                        ) {
+                          return;
+                        }
+                        try {
+                          setBusyId(classGroup.id);
+                          await archiveClass(classGroup.id);
+                          await refresh();
+                        } catch (err) {
+                          setError(
+                            err instanceof Error
+                              ? err.message
+                              : "Unable to archive class.",
+                          );
+                        } finally {
+                          setBusyId(null);
+                        }
+                      }}
+                      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
                     >
-                      Add pupil
+                      Archive
                     </button>
-                  </form>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (
+                          !window.confirm(
+                            `Delete ${classGroup.name}? This cannot be undone.`,
+                          )
+                        ) {
+                          return;
+                        }
+                        try {
+                          setBusyId(classGroup.id);
+                          await deleteClass(classGroup.id);
+                          await refresh();
+                        } catch (err) {
+                          setError(
+                            err instanceof Error
+                              ? err.message
+                              : "Unable to delete class.",
+                          );
+                        } finally {
+                          setBusyId(null);
+                        }
+                      }}
+                      className="rounded-md border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
+
+                <details className="mt-3 text-xs text-slate-500">
+                  <summary className="cursor-pointer font-semibold text-slate-600">
+                    {classGroup.pupils.length} pupils assigned
+                  </summary>
+                  <ul className="mt-2 space-y-1">
+                    {classGroup.pupils.length === 0 ? (
+                      <li className="text-slate-400">No pupils assigned.</li>
+                    ) : (
+                      classGroup.pupils.map((pupil) => (
+                        <li key={pupil.id} className="text-slate-600">
+                          {pupil.display_name}
+                          {pupil.year_group ? ` (${pupil.year_group})` : ""}
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </details>
               </div>
             ))}
           </div>
@@ -228,6 +291,3 @@ const ClassesPanel = () => {
 };
 
 export default ClassesPanel;
-
-
-

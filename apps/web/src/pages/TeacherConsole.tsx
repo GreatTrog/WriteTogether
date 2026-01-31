@@ -5,13 +5,15 @@ import WordBanksPanel from "../sections/teacher/WordBanksPanel";
 import AssignmentsPanel from "../sections/teacher/AssignmentsPanel";
 import AnalyticsPanel from "../sections/teacher/AnalyticsPanel";
 import SharedFilesPanel from "../sections/teacher/SharedFilesPanel";
+import PupilsPanel from "../sections/teacher/PupilsPanel";
 import useSupabaseSession from "../hooks/useSupabaseSession";
 import { requireSupabase, supabase } from "../services/supabaseClient";
 
 // Secondary nav mirrors the teacher workflow areas surfaced in Phase 1.
 const sections = [
   { path: "", label: "Dashboard" },
-  { path: "classes", label: "Classes & Pupils" },
+  { path: "classes", label: "Classes" },
+  { path: "pupils", label: "Pupils" },
   { path: "assignments", label: "Assignments" },
   { path: "banks", label: "Word Banks" },
   { path: "shared-files", label: "Shared Files" },
@@ -152,6 +154,7 @@ const TeacherConsole = () => {
             }
           />
           <Route path="classes" element={<ClassesPanel />} />
+          <Route path="pupils" element={<PupilsPanel />} />
           <Route path="assignments" element={<AssignmentsPanel />} />
           <Route path="banks" element={<WordBanksPanel />} />
           <Route path="shared-files" element={<SharedFilesPanel />} />

@@ -34,6 +34,10 @@ Legend:
   Files: `apps/web/src/wordbanks/wordBankCatalog.ts`  
   Plan: `plans/P1-wordbank-bundle-cost.md`
 
+- [ ] **Teacher class & pupil management (archive/delete/bulk import/rollover + pupil logins)**  
+  Files: `apps/web/src/sections/teacher/ClassesPanel.tsx`, `apps/web/src/store/useTeacherStore.ts`, Supabase SQL  
+  Plan: `plans/P1-teacher-class-pupil-management.md`
+
 ---
 
 ## P2
