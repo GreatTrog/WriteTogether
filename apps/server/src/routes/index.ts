@@ -1,11 +1,11 @@
 import { Router } from "express";
 
-import assignmentsRouter from "./routes.assignments";
-import classesRouter from "./routes.classes";
-import wordBanksRouter from "./routes.word-banks";
-import documentsRouter from "./routes.documents";
-import exportsRouter from "./routes.exports";
-import pupilsRouter from "./routes.pupils";
+import assignmentsRouter from "./routes.assignments.js";
+import classesRouter from "./routes.classes.js";
+import wordBanksRouter from "./routes.word-banks.js";
+import documentsRouter from "./routes.documents.js";
+import exportsRouter from "./routes.exports.js";
+import pupilsRouter from "./routes.pupils.js";
 
 const router = Router();
 

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireSupabaseAdmin } from "../services/supabaseAdmin";
-import { decryptPassword, encryptPassword } from "../services/passwordCrypto";
+import { requireSupabaseAdmin } from "../services/supabaseAdmin.js";
+import { decryptPassword, encryptPassword } from "../services/passwordCrypto.js";
 
 const router = Router();
 

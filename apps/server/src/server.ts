@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 
-import router from "./routes";
+import router from "./routes/index.js";
 
 const app = express();
 
@@ -18,23 +18,10 @@ if (!resolvedOrigins.includes("https://write-together-web.vercel.app")) {
   resolvedOrigins.push("https://write-together-web.vercel.app");
 }
 
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin) {
-        return callback(null, true);
-      }
-      if (resolvedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error("CORS origin not allowed"));
-    },
-    credentials: true,
-    optionsSuccessStatus: 204,
-  }),
-);
-
-app.options("*", (req, res) => {
+app.use((req, res, next) => {
+  if (req.method !== "OPTIONS") {
+    return next();
+  }
   const origin = req.headers.origin;
   if (origin && resolvedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
@@ -50,6 +37,23 @@ app.options("*", (req, res) => {
   );
   res.status(204).end();
 });
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) {
+        return callback(null, true);
+      }
+      if (resolvedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+    credentials: true,
+    optionsSuccessStatus: 204,
+  }),
+);
+
 app.use(express.json());
 app.use(morgan("dev"));
 
