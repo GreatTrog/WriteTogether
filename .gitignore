@@ -6,5 +6,6 @@ build
 /coverage
 .turbo
 .env*
+client_secret_*.json
 /.idea
 /.vscode
