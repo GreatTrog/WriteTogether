@@ -709,9 +709,6 @@ const ModeTwoWorkspace = () => {
           {isPupilSession ? (
             <div className="mode-two-draft-bar">
               <div className="mode-two-draft-bar__left">
-                <label className="mode-two-draft-label" htmlFor="mode-two-file-menu">
-                  File
-                </label>
                 <select
                   id="mode-two-file-menu"
                   className="mode-two-draft-action"
