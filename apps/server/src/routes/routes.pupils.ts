@@ -5,6 +5,22 @@ import { decryptPassword, encryptPassword } from "../services/passwordCrypto";
 
 const router = Router();
 
+const resolveClassOwnerId = async (classId: string | null) => {
+  if (!classId) {
+    return null;
+  }
+  const supabase = requireSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("classes")
+    .select("owner_id")
+    .eq("id", classId)
+    .single();
+  if (error) {
+    return null;
+  }
+  return data?.owner_id ?? null;
+};
+
 const requireAuthUser = async (token?: string) => {
   const client = requireSupabaseAdmin();
   if (!token) {
@@ -41,18 +57,15 @@ router.post("/login", async (req, res) => {
 
     const { data: pupilRow, error: pupilError } = await supabase
       .from("pupils")
-      .select("id,owner_id,class_id,classes(owner_id)")
+      .select("id,owner_id,class_id")
       .eq("id", payload.pupilId)
       .single();
     if (pupilError || !pupilRow) {
       return res.status(404).send("Pupil not found.");
     }
 
-    const classOwnerId =
-      Array.isArray(pupilRow.classes) && pupilRow.classes.length > 0
-        ? pupilRow.classes[0]?.owner_id
-        : pupilRow.classes?.owner_id;
-    const ownerId = pupilRow.owner_id ?? classOwnerId ?? null;
+    const ownerId =
+      pupilRow.owner_id ?? (await resolveClassOwnerId(pupilRow.class_id)) ?? null;
     if (ownerId !== teacherProfile.id) {
       return res.status(403).send("Not allowed to create login for this pupil.");
     }
@@ -177,18 +190,15 @@ router.get("/:pupilId/password", async (req, res) => {
 
     const { data: pupilRow, error: pupilError } = await supabase
       .from("pupils")
-      .select("id,owner_id,class_id,classes(owner_id),auth_password_enc")
+      .select("id,owner_id,class_id,auth_password_enc")
       .eq("id", pupilId)
       .single();
     if (pupilError || !pupilRow) {
       return res.status(404).send("Pupil not found.");
     }
 
-    const classOwnerId =
-      Array.isArray(pupilRow.classes) && pupilRow.classes.length > 0
-        ? pupilRow.classes[0]?.owner_id
-        : pupilRow.classes?.owner_id;
-    const ownerId = pupilRow.owner_id ?? classOwnerId ?? null;
+    const ownerId =
+      pupilRow.owner_id ?? (await resolveClassOwnerId(pupilRow.class_id)) ?? null;
     if (ownerId !== teacherProfile.id) {
       return res.status(403).send("Not allowed to view this password.");
     }
@@ -228,18 +238,15 @@ router.post("/:pupilId/reset-password", async (req, res) => {
 
     const { data: pupilRow, error: pupilError } = await supabase
       .from("pupils")
-      .select("id,owner_id,class_id,classes(owner_id),auth_user_id,username")
+      .select("id,owner_id,class_id,auth_user_id,username")
       .eq("id", pupilId)
       .single();
     if (pupilError || !pupilRow) {
       return res.status(404).send("Pupil not found.");
     }
 
-    const classOwnerId =
-      Array.isArray(pupilRow.classes) && pupilRow.classes.length > 0
-        ? pupilRow.classes[0]?.owner_id
-        : pupilRow.classes?.owner_id;
-    const ownerId = pupilRow.owner_id ?? classOwnerId ?? null;
+    const ownerId =
+      pupilRow.owner_id ?? (await resolveClassOwnerId(pupilRow.class_id)) ?? null;
     if (ownerId !== teacherProfile.id) {
       return res.status(403).send("Not allowed to reset this password.");
     }
