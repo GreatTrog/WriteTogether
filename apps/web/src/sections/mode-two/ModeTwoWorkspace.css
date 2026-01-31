@@ -334,6 +334,8 @@
 .mode-two-draft-select {
   min-width: 200px;
   margin-top: 0;
+  width: auto;
+  flex: 0 0 auto;
 }
 
 .mode-two-draft-button {
