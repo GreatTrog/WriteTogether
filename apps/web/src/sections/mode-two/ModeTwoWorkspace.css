@@ -352,6 +352,16 @@
   background-color: var(--mode-two-color-card);
 }
 
+.mode-two-draft-button--danger {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.mode-two-draft-button--danger:hover {
+  background-color: #fecaca;
+}
+
 .mode-two-draft-button:disabled {
   background-color: var(--mode-two-color-disabled-bg);
   color: var(--mode-two-color-disabled-text);

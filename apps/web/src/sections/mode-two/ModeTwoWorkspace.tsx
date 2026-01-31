@@ -51,6 +51,10 @@ const ModeTwoWorkspace = () => {
   const isPupilSession =
     Boolean(user) && user?.user_metadata?.role === "pupil";
   const pupilId = user?.user_metadata?.pupil_id as string | undefined;
+  const pupilUsername =
+    typeof user?.user_metadata?.username === "string"
+      ? user.user_metadata.username
+      : "";
 
   // Hydrate state from localStorage so drafts, theme, and filters survive reloads.
   const [topicFilter, setTopicFilter] = useState<TopicFilter>("all");
@@ -67,6 +71,7 @@ const ModeTwoWorkspace = () => {
       title: string;
       contentHtml: string;
       updatedAt: string;
+      archived: boolean;
     }>
   >([]);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
@@ -113,7 +118,13 @@ const ModeTwoWorkspace = () => {
       return;
     }
     const now = new Date();
-    const title = `Draft ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+    const safeName = pupilUsername?.trim() || "Pupil";
+    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(
+      now.getDate(),
+    ).padStart(2, "0")}${String(now.getHours()).padStart(2, "0")}${String(
+      now.getMinutes(),
+    ).padStart(2, "0")}`;
+    const title = `${safeName}_${stamp}`;
     const { data, error } = await supabase
       .from("pupil_drafts")
       .insert({
@@ -122,8 +133,9 @@ const ModeTwoWorkspace = () => {
         content_html: "",
         content_text: "",
         word_count: 0,
+        archived: false,
       })
-      .select("id,title,content_html,updated_at")
+      .select("id,title,content_html,updated_at,archived")
       .single();
     if (error || !data) {
       setDraftStatus("Unable to create draft.");
@@ -134,6 +146,7 @@ const ModeTwoWorkspace = () => {
       title: data.title,
       contentHtml: data.content_html ?? "",
       updatedAt: data.updated_at ?? now.toISOString(),
+      archived: data.archived ?? false,
     };
     setDrafts((prev) => [entry, ...prev]);
     setActiveDraftId(entry.id);
@@ -141,7 +154,7 @@ const ModeTwoWorkspace = () => {
     setDraftHtml(entry.contentHtml || "<p></p>");
     lastSavedHtmlRef.current = entry.contentHtml || "";
     setDraftStatus("New draft created.");
-  }, [isPupilSession, pupilId]);
+  }, [isPupilSession, pupilId, pupilUsername]);
 
   const loadDrafts = useCallback(async () => {
     if (!supabase || !isPupilSession || !pupilId) {
@@ -150,8 +163,9 @@ const ModeTwoWorkspace = () => {
     setDraftStatus("Loading drafts...");
     const { data, error } = await supabase
       .from("pupil_drafts")
-      .select("id,title,content_html,updated_at")
+      .select("id,title,content_html,updated_at,archived")
       .eq("pupil_id", pupilId)
+      .eq("archived", false)
       .order("updated_at", { ascending: false });
 
     if (error) {
@@ -165,6 +179,7 @@ const ModeTwoWorkspace = () => {
         title: entry.title,
         contentHtml: entry.content_html ?? "",
         updatedAt: entry.updated_at ?? new Date().toISOString(),
+        archived: entry.archived ?? false,
       })) ?? [];
 
     setDrafts(nextDrafts);
@@ -210,6 +225,56 @@ const ModeTwoWorkspace = () => {
       ),
     );
   }, [activeDraftId, draftTitle]);
+
+  const archiveDraft = useCallback(async () => {
+    if (!supabase || !activeDraftId) {
+      return;
+    }
+    const confirmed = window.confirm("Archive this draft? You can restore later.");
+    if (!confirmed) {
+      return;
+    }
+    const { error } = await supabase
+      .from("pupil_drafts")
+      .update({ archived: true, updated_at: new Date().toISOString() })
+      .eq("id", activeDraftId);
+    if (error) {
+      setDraftStatus("Unable to archive draft.");
+      return;
+    }
+    setDrafts((prev) => prev.filter((draft) => draft.id !== activeDraftId));
+    setActiveDraftId(null);
+    setDraftTitle("");
+    setDraftHtml("<p></p>");
+    setDraftStatus("Draft archived.");
+    await loadDrafts();
+  }, [activeDraftId, loadDrafts]);
+
+  const deleteDraft = useCallback(async () => {
+    if (!supabase || !activeDraftId) {
+      return;
+    }
+    const confirmed = window.confirm(
+      "Delete this draft permanently? This cannot be undone.",
+    );
+    if (!confirmed) {
+      return;
+    }
+    const { error } = await supabase
+      .from("pupil_drafts")
+      .delete()
+      .eq("id", activeDraftId);
+    if (error) {
+      setDraftStatus("Unable to delete draft.");
+      return;
+    }
+    setDrafts((prev) => prev.filter((draft) => draft.id !== activeDraftId));
+    setActiveDraftId(null);
+    setDraftTitle("");
+    setDraftHtml("<p></p>");
+    setDraftStatus("Draft deleted.");
+    await loadDrafts();
+  }, [activeDraftId, loadDrafts]);
 
   const selectDraft = useCallback(
     (id: string) => {
@@ -662,6 +727,64 @@ const ModeTwoWorkspace = () => {
     <div className="mode-two-canvas-shell">
       <div className={themedClass("mode-two-canvas")}>
         <div className="mode-two-canvas-body">
+          {isPupilSession ? (
+            <div className="mode-two-draft-bar">
+              <div className="mode-two-draft-bar__left">
+                <label className="mode-two-draft-label" htmlFor="mode-two-draft-picker">
+                  Draft
+                </label>
+                <select
+                  id="mode-two-draft-picker"
+                  className="mode-two-select mode-two-draft-select"
+                  value={activeDraftId ?? ""}
+                  onChange={(event) => selectDraft(event.target.value)}
+                >
+                  {drafts.map((draft) => (
+                    <option key={draft.id} value={draft.id}>
+                      {draft.title}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="mode-two-draft-button"
+                  onClick={createDraft}
+                >
+                  New
+                </button>
+                <button
+                  type="button"
+                  className="mode-two-draft-button"
+                  onClick={renameDraft}
+                  disabled={!activeDraftId}
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  className="mode-two-draft-button"
+                  onClick={archiveDraft}
+                  disabled={!activeDraftId}
+                >
+                  Archive
+                </button>
+                <button
+                  type="button"
+                  className="mode-two-draft-button mode-two-draft-button--danger"
+                  onClick={deleteDraft}
+                  disabled={!activeDraftId}
+                >
+                  Delete
+                </button>
+              </div>
+              <div className="mode-two-draft-bar__right">
+                <span className="mode-two-draft-title">{draftTitle}</span>
+                {draftStatus ? (
+                  <span className="mode-two-draft-status">{draftStatus}</span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           <ModeTwoToolbar
             editor={editor}
             fontFamily={fontFamily}
@@ -684,14 +807,6 @@ const ModeTwoWorkspace = () => {
             onSpeakDraft={handleSpeakDraft}
             onClearDraft={handleClearDraft}
             onExportPreview={handleExportPreview}
-            draftsEnabled={isPupilSession}
-            draftOptions={drafts}
-            activeDraftId={activeDraftId}
-            draftTitle={draftTitle}
-            draftStatus={draftStatus}
-            onSelectDraft={selectDraft}
-            onCreateDraft={createDraft}
-            onRenameDraft={renameDraft}
           />
         </div>
       </div>
