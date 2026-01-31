@@ -14,6 +14,10 @@ const resolvedOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:5173")
   .map((value) => value.trim().replace(/\/$/, ""))
   .filter(Boolean);
 
+if (!resolvedOrigins.includes("https://write-together-web.vercel.app")) {
+  resolvedOrigins.push("https://write-together-web.vercel.app");
+}
+
 app.use(
   cors({
     origin(origin, callback) {
@@ -30,7 +34,14 @@ app.use(
   }),
 );
 
-app.options("*", cors());
+app.options(
+  "*",
+  cors({
+    origin: resolvedOrigins,
+    credentials: true,
+    optionsSuccessStatus: 204,
+  }),
+);
 app.use(express.json());
 app.use(morgan("dev"));
 
