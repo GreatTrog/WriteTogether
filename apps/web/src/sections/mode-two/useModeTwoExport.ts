@@ -8,6 +8,7 @@ import { saveSharedFileBlob } from "../../services/sharedFileStorage";
 import { createId } from "../../utils/createId";
 import { type ExportState } from "./types";
 import { type SharedFileRecord } from "../../store/useTeacherStore";
+import { supabase } from "../../services/supabaseClient";
 
 // pdfMake requires the virtual file system to load fonts in the browser bundle.
 const pdfMakeWithVfs = pdfMake as typeof pdfMake & { vfs?: Record<string, string> };
@@ -106,6 +107,73 @@ type UseModeTwoExportResult = {
   exportMessage: string;
   exportToast: string | null;
   handleExportPreview: () => Promise<void>;
+};
+
+const resolveTeacherProfileId = async () => {
+  if (!supabase) {
+    return null;
+  }
+  const { data: authData } = await supabase.auth.getUser();
+  const userId = authData.user?.id;
+  if (!userId) {
+    return null;
+  }
+  const { data, error } = await supabase
+    .from("teacher_profiles")
+    .select("id")
+    .eq("auth_user_id", userId)
+    .single();
+  if (error) {
+    console.warn("Unable to resolve teacher profile:", error.message);
+    return null;
+  }
+  return data?.id ?? null;
+};
+
+const uploadExportToSupabase = async (
+  profileId: string,
+  filename: string,
+  blob: Blob,
+) => {
+  if (!supabase) {
+    return null;
+  }
+  const safeName = filename.replace(/[^\w.\-]+/g, "_");
+  const storagePath = `${profileId}/${safeName}`;
+  const { error } = await supabase.storage
+    .from("exports")
+    .upload(storagePath, blob, {
+      upsert: true,
+      contentType: "application/pdf",
+    });
+  if (error) {
+    console.warn("Supabase storage upload failed:", error.message);
+    return null;
+  }
+  return storagePath;
+};
+
+const persistSharedFileRecord = async (
+  payload: {
+    owner_id: string;
+    filename: string;
+    username: string;
+    saved_at: string;
+    location: string;
+    size_bytes: number;
+    word_count: number;
+    storage_key: string | null;
+  },
+) => {
+  if (!supabase) {
+    return false;
+  }
+  const { error } = await supabase.from("shared_files").insert(payload);
+  if (error) {
+    console.warn("Supabase metadata insert failed:", error.message);
+    return false;
+  }
+  return true;
 };
 
 const useModeTwoExport = ({
@@ -277,12 +345,40 @@ const useModeTwoExport = ({
         }
       }
 
-      const storageKey = createId();
-      const storedInDb = await saveSharedFileBlob(
-        storageKey,
-        pdfBlob,
-        resolvedFilename,
-      );
+      const teacherProfileId = await resolveTeacherProfileId();
+      let storedInDb = false;
+      let storageKey: string | null = null;
+
+      if (teacherProfileId) {
+        const storagePath = await uploadExportToSupabase(
+          teacherProfileId,
+          resolvedFilename,
+          pdfBlob,
+        );
+        if (storagePath) {
+          storageKey = storagePath;
+          storedInDb = await persistSharedFileRecord({
+            owner_id: teacherProfileId,
+            filename: resolvedFilename,
+            username,
+            saved_at: now.toISOString(),
+            location: savedLocation,
+            size_bytes: pdfBlob.size,
+            word_count: wordCount,
+            storage_key: storageKey,
+          });
+        }
+      }
+
+      if (!storedInDb) {
+        const localStorageKey = createId();
+        const storedLocally = await saveSharedFileBlob(
+          localStorageKey,
+          pdfBlob,
+          resolvedFilename,
+        );
+        storageKey = storedLocally ? localStorageKey : null;
+      }
 
       addSharedFile({
         filename: resolvedFilename,
@@ -291,7 +387,7 @@ const useModeTwoExport = ({
         location: savedLocation,
         sizeBytes: pdfBlob.size,
         wordCount,
-        storageKey: storedInDb ? storageKey : null,
+        storageKey,
       });
 
       setExportState("success");

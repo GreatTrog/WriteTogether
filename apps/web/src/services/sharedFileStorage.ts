@@ -1,3 +1,5 @@
+import { supabase } from "./supabaseClient";
+
 type SharedFileBlobRecord = {
   id: string;
   blob: Blob;
@@ -71,7 +73,24 @@ export const getSharedFileBlob = async (id: string) => {
       request.onerror = () => resolve(null);
     });
     db.close();
-    return blob;
+    if (blob) {
+      return blob;
+    }
+  } catch {
+    // fall through to supabase download
+  }
+
+  if (!supabase) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase.storage.from("exports").download(id);
+    if (error) {
+      console.warn("Supabase storage download failed:", error.message);
+      return null;
+    }
+    return data ?? null;
   } catch {
     return null;
   }
