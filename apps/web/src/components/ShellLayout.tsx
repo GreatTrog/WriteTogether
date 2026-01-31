@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState, type PropsWithChildren } from "react";
 import clsx from "clsx";
 import logoWideUrl from "../assets/logo_wide.svg";
@@ -8,6 +8,7 @@ import { useGlobalMenu } from "./GlobalMenu";
 import ColorModeSection from "./global-menu/ColorModeSection";
 import { useWorkspaceSettings } from "../store/useWorkspaceSettings";
 import useSupabaseSession from "../hooks/useSupabaseSession";
+import { supabase } from "../services/supabaseClient";
 
 // Primary nav links that shape the main high-level routes.
 const navItems = [
@@ -17,10 +18,12 @@ const navItems = [
 
 const ShellLayout = ({ children }: PropsWithChildren) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { content: menuContent } = useGlobalMenu();
   const theme = useWorkspaceSettings((state) => state.theme);
-  const { user } = useSupabaseSession();
+  const { session, user } = useSupabaseSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const menuPanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -30,14 +33,84 @@ const ShellLayout = ({ children }: PropsWithChildren) => {
     ? navItems.filter((item) => item.to !== "/teacher")
     : navItems;
 
+  const handleTeacherLogin = async () => {
+    if (!supabase) {
+      setAuthError("Supabase is not configured.");
+      return;
+    }
+    setAuthError(null);
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/teacher`,
+      },
+    });
+  };
+
+  const handlePupilLogin = () => {
+    setAuthError(null);
+    navigate("/pupil");
+    setMenuOpen(false);
+  };
+
+  const handleSignOut = async () => {
+    if (!supabase) {
+      return;
+    }
+    setAuthError(null);
+    await supabase.auth.signOut();
+  };
+
   const combinedMenuContent = useMemo(() => {
     return (
       <div className="flex flex-col gap-4 text-sm text-slate-700">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          {session ? (
+            <div className="space-y-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Signed in
+              </div>
+              <div className="text-sm font-medium text-slate-800">
+                {user?.email ?? "User"}
+              </div>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Login
+              </div>
+              <button
+                type="button"
+                onClick={handlePupilLogin}
+                className="w-full rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Pupil login
+              </button>
+              <button
+                type="button"
+                onClick={handleTeacherLogin}
+                className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Teacher login
+              </button>
+              {authError ? (
+                <p className="text-xs text-rose-600">{authError}</p>
+              ) : null}
+            </div>
+          )}
+        </div>
         <ColorModeSection />
         {menuContent}
       </div>
     );
-  }, [menuContent]);
+  }, [authError, handlePupilLogin, handleSignOut, handleTeacherLogin, menuContent, session, user?.email]);
 
   useEffect(() => {
     if (!menuContent) {

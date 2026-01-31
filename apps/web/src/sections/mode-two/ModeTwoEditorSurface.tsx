@@ -65,7 +65,7 @@ const ModeTwoEditorSurface = ({
           exportState === "loading" || !plainText.trim() ? " is-disabled" : ""
         }`}
       >
-        {exportState === "loading" ? "Exporting..." : "Export preview"}
+        {exportState === "loading" ? "Sending..." : "Send to Teacher"}
       </button>
     </div>
   </div>
