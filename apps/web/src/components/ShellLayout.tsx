@@ -7,6 +7,7 @@ import hamburgerCloseIcon from "../assets/icons/Hamburger_close.svg";
 import { useGlobalMenu } from "./GlobalMenu";
 import ColorModeSection from "./global-menu/ColorModeSection";
 import { useWorkspaceSettings } from "../store/useWorkspaceSettings";
+import useSupabaseSession from "../hooks/useSupabaseSession";
 
 // Primary nav links that shape the main high-level routes.
 const navItems = [
@@ -18,11 +19,16 @@ const ShellLayout = ({ children }: PropsWithChildren) => {
   const location = useLocation();
   const { content: menuContent } = useGlobalMenu();
   const theme = useWorkspaceSettings((state) => state.theme);
+  const { user } = useSupabaseSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const menuPanelRef = useRef<HTMLDivElement | null>(null);
 
   const isPupilRoute = location.pathname.startsWith("/pupil");
+  const isPupilUser = user?.user_metadata?.role === "pupil";
+  const visibleNavItems = isPupilUser
+    ? navItems.filter((item) => item.to !== "/teacher")
+    : navItems;
 
   const combinedMenuContent = useMemo(() => {
     return (
@@ -99,7 +105,7 @@ const ShellLayout = ({ children }: PropsWithChildren) => {
             />
           </Link>
           <nav className="flex items-center gap-4 text-sm font-medium">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}

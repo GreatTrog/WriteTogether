@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useState } from "react";
 import ClassesPanel from "../sections/teacher/ClassesPanel";
 import WordBanksPanel from "../sections/teacher/WordBanksPanel";
@@ -56,6 +56,10 @@ const TeacherConsole = () => {
         Loading teacher session...
       </div>
     );
+  }
+
+  if (session && user?.user_metadata?.role === "pupil") {
+    return <Navigate to="/pupil" replace />;
   }
 
   if (!session) {

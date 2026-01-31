@@ -18,6 +18,8 @@ export type TeacherPupil = {
   current_mode: "mode1" | "mode2";
   archived_at: string | null;
   username: string | null;
+  auth_email: string | null;
+  auth_user_id: string | null;
   year_group: "Y1" | "Y2" | "Y3" | "Y4" | "Y5" | "Y6" | null;
 };
 
@@ -156,7 +158,10 @@ export const createPupil = async (
 export const updatePupil = async (
   pupilId: string,
   updates: Partial<
-    Pick<TeacherPupil, "display_name" | "needs" | "current_mode" | "year_group">
+    Pick<
+      TeacherPupil,
+      "display_name" | "needs" | "current_mode" | "year_group" | "auth_email"
+    >
   >,
 ) => {
   const client = requireSupabase();
@@ -181,7 +186,9 @@ export const fetchPupils = async (): Promise<TeacherPupilRow[]> => {
   const client = requireSupabase();
   const { data, error } = await client
     .from("pupils")
-    .select("id,class_id,display_name,needs,current_mode,archived_at,username,year_group,classes(name,phase)")
+    .select(
+      "id,class_id,display_name,needs,current_mode,archived_at,username,auth_email,auth_user_id,year_group,classes(name,phase)",
+    )
     .is("archived_at", null)
     .order("display_name", { ascending: true });
 

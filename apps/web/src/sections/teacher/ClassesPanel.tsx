@@ -113,7 +113,7 @@ const ClassesPanel = () => {
             </p>
           </div>
           <div className="ml-auto text-xs text-slate-500">
-            {classes.length} classes • {totalPupils} pupils
+            {classes.length} classes - {totalPupils} pupils
           </div>
         </div>
 

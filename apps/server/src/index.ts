@@ -1,4 +1,12 @@
+import dotenv from "dotenv";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import http from "node:http";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, "..", ".env.local") });
+
 import app from "./server";
 
 const port = Number(process.env.PORT || 4000);

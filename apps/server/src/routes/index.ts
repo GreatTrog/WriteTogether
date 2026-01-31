@@ -5,6 +5,7 @@ import classesRouter from "./routes.classes";
 import wordBanksRouter from "./routes.word-banks";
 import documentsRouter from "./routes.documents";
 import exportsRouter from "./routes.exports";
+import pupilsRouter from "./routes.pupils";
 
 const router = Router();
 
@@ -17,6 +18,7 @@ router.get("/", (_req, res) => {
     endpoints: [
       "/assignments",
       "/classes",
+      "/pupils",
       "/word-banks",
       "/documents",
       "/exports/preview",
@@ -29,5 +31,6 @@ router.use("/classes", classesRouter);
 router.use("/word-banks", wordBanksRouter);
 router.use("/documents", documentsRouter);
 router.use("/exports", exportsRouter);
+router.use("/pupils", pupilsRouter);
 
 export default router;
