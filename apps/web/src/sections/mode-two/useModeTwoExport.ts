@@ -52,6 +52,53 @@ const resolveUsername = () => {
   }
 };
 
+const resolvePupilLoginName = async () => {
+  if (!supabase) {
+    return null;
+  }
+  const { data: authData } = await supabase.auth.getUser();
+  const user = authData.user;
+  if (!user) {
+    return null;
+  }
+  const role = user.user_metadata?.role;
+  if (role !== "pupil") {
+    return null;
+  }
+  const pupilId = user.user_metadata?.pupil_id ?? null;
+  if (!pupilId) {
+    return null;
+  }
+  const { data, error } = await supabase
+    .from("pupils")
+    .select("username")
+    .eq("id", pupilId)
+    .single();
+  if (error) {
+    console.warn("Unable to resolve pupil username:", error.message);
+    return null;
+  }
+  return data?.username ?? null;
+};
+
+const slugify = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+
+const formatExportTimestamp = (date: Date) => {
+  const pad = (value: number) => value.toString().padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+  ].join("");
+};
+
 const escapeHtml = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -208,42 +255,67 @@ const useModeTwoExport = ({
 
     try {
       const now = new Date();
-      const defaultNameSeed = now
-        .toISOString()
-        .replace(/[:.]/g, "-")
-        .replace("T", "_")
-        .replace("Z", "");
-      const suggestedName = `ModeTwo_${defaultNameSeed}.pdf`;
       const typedWindow = window as FilePickerWindow;
-      let resolvedFilename = suggestedName;
+      let resolvedFilename = "";
       let fileHandle: Awaited<ReturnType<NonNullable<FilePickerWindow["showSaveFilePicker"]>>> | null =
         null;
 
-      if (typedWindow.showSaveFilePicker) {
-        try {
-          fileHandle = await typedWindow.showSaveFilePicker({
-            suggestedName,
-            types: [
-              {
-                description: "PDF document",
-                accept: { "application/pdf": [".pdf"] },
-              },
-            ],
-          });
-          const handleNameRaw = fileHandle.name;
-          const handleName = handleNameRaw.toLowerCase().endsWith(".pdf")
-            ? handleNameRaw
-            : `${handleNameRaw}.pdf`;
-          resolvedFilename = handleName;
-        } catch (pickerError) {
-          const isAbort =
-            pickerError instanceof DOMException && pickerError.name === "AbortError";
-          if (isAbort) {
+      const loginUsername = await resolvePupilLoginName();
+      const baseName = loginUsername
+        ? `${slugify(loginUsername) || "pupil"}_${formatExportTimestamp(now)}`
+        : "";
+
+      if (loginUsername) {
+        resolvedFilename = `${baseName}.pdf`;
+      } else {
+        const fallbackSeed = now
+          .toISOString()
+          .replace(/[:.]/g, "-")
+          .replace("T", "_")
+          .replace("Z", "");
+        const suggestedName = `ModeTwo_${fallbackSeed}.pdf`;
+
+        if (typedWindow.showSaveFilePicker) {
+          try {
+            fileHandle = await typedWindow.showSaveFilePicker({
+              suggestedName,
+              types: [
+                {
+                  description: "PDF document",
+                  accept: { "application/pdf": [".pdf"] },
+                },
+              ],
+            });
+            const handleNameRaw = fileHandle.name;
+            const handleName = handleNameRaw.toLowerCase().endsWith(".pdf")
+              ? handleNameRaw
+              : `${handleNameRaw}.pdf`;
+            resolvedFilename = handleName;
+          } catch (pickerError) {
+            const isAbort =
+              pickerError instanceof DOMException && pickerError.name === "AbortError";
+            if (isAbort) {
+              setExportState("idle");
+              setExportMessage("Export cancelled.");
+              return;
+            }
+          }
+        } else {
+          const promptName = window.prompt("Name your export file:", "My writing");
+          if (!promptName) {
             setExportState("idle");
             setExportMessage("Export cancelled.");
             return;
           }
+          const slug = slugify(promptName) || "my-writing";
+          resolvedFilename = `${slug}.pdf`;
         }
+      }
+
+      if (!resolvedFilename) {
+        setExportState("idle");
+        setExportMessage("Export cancelled.");
+        return;
       }
 
       shouldRefocus = editor?.isFocused ?? false;
