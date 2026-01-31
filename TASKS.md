@@ -38,35 +38,35 @@ Legend:
 
 ## P2
 
-- [ ] **Remove/clean stray files and duplicate type shims**  
+- [x] **Remove/clean stray files and duplicate type shims**  
   Targets:  
   - `apps/web/src/sections/mode-two/ModeTwoWorkspace.tsx.bak`  
   - `apps/web/src/sections/mode-two/ModeTwoWorkspace.tsx.txt`  
   - duplicate `html-to-pdfmake.d.ts`  
   Notes: keep the preferred shim in `apps/web/src/types`
 
-- [ ] **Align naming/branding and fix docs encoding**  
-  Files: `apps/web/src/layout/ShellLayout.tsx`, `README.md`, `phase1-next-steps.md`
+- [x] **Align naming/branding and fix docs encoding**  
+  Files: `apps/web/src/components/ShellLayout.tsx`, `README.md`, `docs/phase1-next-steps.md`
 
-- [ ] **Add an error boundary for resilience**  
+- [x] **Add an error boundary for resilience**  
   File: `apps/web/src/App.tsx`
 
 ---
 
 ## Quick wins (under 1 hour)
 
-- [ ] Delete `ModeTwoWorkspace.tsx.bak` and `ModeTwoWorkspace.tsx.txt`  
+- [x] Delete `ModeTwoWorkspace.tsx.bak` and `ModeTwoWorkspace.tsx.txt`  
   Path: `apps/web/src/sections/mode-two/`
 
-- [ ] Keep only one `html-to-pdfmake.d.ts`  
+- [x] Keep only one `html-to-pdfmake.d.ts`  
   Prefer: `apps/web/src/types/html-to-pdfmake.d.ts`  
   Remove the duplicate elsewhere.
 
-- [ ] Fix alt text: change “WordWise” → “WriteTogether”  
-  File: `apps/web/src/layout/ShellLayout.tsx`
+- [x] Fix alt text: change "WordWise" -> "WriteTogether"  
+  File: `apps/web/src/components/ShellLayout.tsx`
 
-- [ ] Fix mojibake in docs by re-saving as UTF-8  
-  Files: `README.md`, `phase1-next-steps.md`, `writetogether-word-bank-schema.md`
+- [x] Fix mojibake in docs by re-saving as UTF-8  
+  Files: `README.md`, `docs/phase1-next-steps.md`, `docs/writetogether-word-bank-schema.md`
 
 - [ ] Add `try/catch` around `localStorage` reads/writes  
   Files: `apps/web/src/sections/mode-one/ModeOneBuilder.tsx`, `apps/web/src/sections/mode-two/ModeTwoWorkspace.tsx`

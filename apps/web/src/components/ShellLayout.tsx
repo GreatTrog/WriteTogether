@@ -94,7 +94,7 @@ const ShellLayout = ({ children }: PropsWithChildren) => {
           >
             <img
               src={logoWideUrl}
-              alt="WordWise"
+              alt="WriteTogether"
               className="h-16 w-auto"
             />
           </Link>
