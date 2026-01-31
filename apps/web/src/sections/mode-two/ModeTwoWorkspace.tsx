@@ -226,32 +226,6 @@ const ModeTwoWorkspace = () => {
     );
   }, [activeDraftId, draftTitle]);
 
-  const archiveDraft = useCallback(async () => {
-    if (!supabase || !activeDraftId || !pupilId) {
-      return;
-    }
-    const confirmed = window.confirm("Archive this draft? You can restore later.");
-    if (!confirmed) {
-      return;
-    }
-    const { error } = await supabase
-      .from("pupil_drafts")
-      .update({ archived: true, updated_at: new Date().toISOString() })
-      .eq("id", activeDraftId)
-      .eq("pupil_id", pupilId);
-    if (error) {
-      console.error("Archive draft failed:", error);
-      setDraftStatus("Unable to archive draft.");
-      return;
-    }
-    setDrafts((prev) => prev.filter((draft) => draft.id !== activeDraftId));
-    setActiveDraftId(null);
-    setDraftTitle("");
-    setDraftHtml("<p></p>");
-    setDraftStatus("Draft archived.");
-    await loadDrafts();
-  }, [activeDraftId, loadDrafts, pupilId]);
-
   const deleteDraft = useCallback(async () => {
     if (!supabase || !activeDraftId || !pupilId) {
       return;
@@ -736,7 +710,7 @@ const ModeTwoWorkspace = () => {
             <div className="mode-two-draft-bar">
               <div className="mode-two-draft-bar__left">
                 <label className="mode-two-draft-label" htmlFor="mode-two-draft-picker">
-                  Draft
+                  File
                 </label>
                 <select
                   id="mode-two-draft-picker"
@@ -750,37 +724,31 @@ const ModeTwoWorkspace = () => {
                     </option>
                   ))}
                 </select>
-                <button
-                  type="button"
-                  className="mode-two-draft-button"
-                  onClick={createDraft}
-                >
-                  New
-                </button>
-                <button
-                  type="button"
-                  className="mode-two-draft-button"
-                  onClick={renameDraft}
+                <select
+                  className="mode-two-draft-action"
+                  aria-label="File actions"
+                  value=""
+                  onChange={(event) => {
+                    const action = event.target.value;
+                    if (!action) {
+                      return;
+                    }
+                    if (action === "new") {
+                      void createDraft();
+                    } else if (action === "rename") {
+                      void renameDraft();
+                    } else if (action === "delete") {
+                      void deleteDraft();
+                    }
+                    event.target.value = "";
+                  }}
                   disabled={!activeDraftId}
                 >
-                  Rename
-                </button>
-                <button
-                  type="button"
-                  className="mode-two-draft-button"
-                  onClick={archiveDraft}
-                  disabled={!activeDraftId}
-                >
-                  Archive
-                </button>
-                <button
-                  type="button"
-                  className="mode-two-draft-button mode-two-draft-button--danger"
-                  onClick={deleteDraft}
-                  disabled={!activeDraftId}
-                >
-                  Delete
-                </button>
+                  <option value="">Actions</option>
+                  <option value="new">New</option>
+                  <option value="rename">Rename</option>
+                  <option value="delete">Delete</option>
+                </select>
               </div>
               <div className="mode-two-draft-bar__right">
                 <span className="mode-two-draft-title">{draftTitle}</span>

@@ -362,6 +362,28 @@
   background-color: #fecaca;
 }
 
+.mode-two-draft-action {
+  border: 1px solid var(--mode-two-color-border);
+  border-radius: var(--mode-two-radius-md);
+  background-color: var(--mode-two-color-highlight);
+  padding: 0.25rem 0.6rem;
+  font-size: var(--mode-two-font-size-xs);
+  font-weight: 600;
+  color: var(--mode-two-color-primary);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.mode-two-draft-action:hover {
+  background-color: var(--mode-two-color-card);
+}
+
+.mode-two-draft-action:disabled {
+  background-color: var(--mode-two-color-disabled-bg);
+  color: var(--mode-two-color-disabled-text);
+  cursor: not-allowed;
+}
+
 .mode-two-draft-button:disabled {
   background-color: var(--mode-two-color-disabled-bg);
   color: var(--mode-two-color-disabled-text);
