@@ -239,6 +239,7 @@ const ModeTwoWorkspace = () => {
       .update({ archived: true, updated_at: new Date().toISOString() })
       .eq("id", activeDraftId);
     if (error) {
+      console.error("Archive draft failed:", error);
       setDraftStatus("Unable to archive draft.");
       return;
     }
@@ -265,6 +266,7 @@ const ModeTwoWorkspace = () => {
       .delete()
       .eq("id", activeDraftId);
     if (error) {
+      console.error("Delete draft failed:", error);
       setDraftStatus("Unable to delete draft.");
       return;
     }
