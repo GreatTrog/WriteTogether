@@ -69,8 +69,9 @@ const useSpeechSynthesis = (options?: { locale?: string }) => {
       return false;
     }
 
-    if (utteranceRef.current) {
-      window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
+    if (synth.speaking || synth.pending) {
+      synth.cancel();
     }
 
     const utterance = new SpeechSynthesisUtterance(trimmed);
@@ -86,11 +87,7 @@ const useSpeechSynthesis = (options?: { locale?: string }) => {
     utterance.onerror = () => setIsSpeaking(false);
 
     utteranceRef.current = utterance;
-    // Some browsers need a resume + microtask delay after cancel.
-    window.speechSynthesis.resume();
-    window.setTimeout(() => {
-      window.speechSynthesis.speak(utterance);
-    }, 0);
+    synth.speak(utterance);
     return true;
   }, []);
 
