@@ -3,8 +3,8 @@ import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import path from "node:path";
 
-export default defineConfig(({ command }) => ({
-  base: command === "build" ? "./" : "/",
+export default defineConfig(() => ({
+  base: "/",
   plugins: [react(), tsconfigPaths()],
   resolve: {
     alias: {
