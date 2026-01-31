@@ -48,7 +48,11 @@ router.post("/login", async (req, res) => {
       return res.status(404).send("Pupil not found.");
     }
 
-    const ownerId = pupilRow.owner_id ?? pupilRow.classes?.owner_id ?? null;
+    const classOwnerId =
+      Array.isArray(pupilRow.classes) && pupilRow.classes.length > 0
+        ? pupilRow.classes[0]?.owner_id
+        : pupilRow.classes?.owner_id;
+    const ownerId = pupilRow.owner_id ?? classOwnerId ?? null;
     if (ownerId !== teacherProfile.id) {
       return res.status(403).send("Not allowed to create login for this pupil.");
     }
@@ -180,7 +184,11 @@ router.get("/:pupilId/password", async (req, res) => {
       return res.status(404).send("Pupil not found.");
     }
 
-    const ownerId = pupilRow.owner_id ?? pupilRow.classes?.owner_id ?? null;
+    const classOwnerId =
+      Array.isArray(pupilRow.classes) && pupilRow.classes.length > 0
+        ? pupilRow.classes[0]?.owner_id
+        : pupilRow.classes?.owner_id;
+    const ownerId = pupilRow.owner_id ?? classOwnerId ?? null;
     if (ownerId !== teacherProfile.id) {
       return res.status(403).send("Not allowed to view this password.");
     }
@@ -227,7 +235,11 @@ router.post("/:pupilId/reset-password", async (req, res) => {
       return res.status(404).send("Pupil not found.");
     }
 
-    const ownerId = pupilRow.owner_id ?? pupilRow.classes?.owner_id ?? null;
+    const classOwnerId =
+      Array.isArray(pupilRow.classes) && pupilRow.classes.length > 0
+        ? pupilRow.classes[0]?.owner_id
+        : pupilRow.classes?.owner_id;
+    const ownerId = pupilRow.owner_id ?? classOwnerId ?? null;
     if (ownerId !== teacherProfile.id) {
       return res.status(403).send("Not allowed to reset this password.");
     }
