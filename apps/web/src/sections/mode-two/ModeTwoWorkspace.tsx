@@ -10,6 +10,8 @@ import {
 import { useTeacherStore } from "../../store/useTeacherStore";
 import { useWorkspaceSettings } from "../../store/useWorkspaceSettings";
 import { type WordBankSnapshot } from "../../services/wordBankCatalog";
+import { saveSharedFileBlob } from "../../services/sharedFileStorage";
+import { createId } from "../../utils/createId";
 import "./ModeTwoWorkspace.css";
 import iconBold from "../../assets/icons/Bold.svg";
 import iconItalic from "../../assets/icons/Italics.svg";
@@ -170,14 +172,6 @@ const resolveUsername = () => {
   }
 };
 
-const blobToDataUrl = (blob: Blob) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read blob"));
-    reader.readAsDataURL(blob);
-  });
-
 const escapeHtml = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -205,6 +199,21 @@ const generatePdfBlob = (definition: TDocumentDefinitions) =>
       reject(error);
     }
   });
+
+const downloadBlob = (blob: Blob, filename: string) => {
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.setTimeout(() => {
+    URL.revokeObjectURL(objectUrl);
+  }, 60_000);
+};
 
 type AlphabeticalBucket = {
   letter: string;
@@ -688,12 +697,6 @@ useEffect(() => {
         }
       }
 
-      if (!fileHandle) {
-        setExportState("error");
-        setExportMessage("Save dialog unavailable. Please try again.");
-        return;
-      }
-
       shouldRefocus = editor?.isFocused ?? false;
       editor?.commands.blur();
 
@@ -768,19 +771,34 @@ useEffect(() => {
       };
 
       const pdfBlob = await generatePdfBlob(docDefinition);
-      try {
-        const writable = await fileHandle.createWritable();
-        await writable.write(pdfBlob);
-        await writable.close();
-      } catch {
-        setExportState("error");
-        setExportMessage("We couldn't save the PDF. Please try again.");
-        return;
+      let savedLocation = "Browser download";
+      if (fileHandle) {
+        try {
+          const writable = await fileHandle.createWritable();
+          await writable.write(pdfBlob);
+          await writable.close();
+          savedLocation = `File picker (${resolvedFilename})`;
+        } catch {
+          setExportState("error");
+          setExportMessage("We couldn't save the PDF. Please try again.");
+          return;
+        }
+      } else {
+        try {
+          downloadBlob(pdfBlob, resolvedFilename);
+        } catch {
+          setExportState("error");
+          setExportMessage("We couldn't save the PDF. Please try again.");
+          return;
+        }
       }
 
-      const savedLocation = `File picker (${resolvedFilename})`;
-
-      const pdfDataUrl = await blobToDataUrl(pdfBlob);
+      const storageKey = createId();
+      const storedInDb = await saveSharedFileBlob(
+        storageKey,
+        pdfBlob,
+        resolvedFilename,
+      );
 
       addSharedFile({
         filename: resolvedFilename,
@@ -789,7 +807,7 @@ useEffect(() => {
         location: savedLocation,
         sizeBytes: pdfBlob.size,
         wordCount,
-        dataUrl: pdfDataUrl,
+        storageKey: storedInDb ? storageKey : null,
       });
 
       setExportState("success");
@@ -798,7 +816,11 @@ useEffect(() => {
         window.clearTimeout(exportToastTimerRef.current);
         exportToastTimerRef.current = null;
       }
-      setExportToast("File exported and a copy sent to your teacher.");
+      setExportToast(
+        storedInDb
+          ? "File exported and a copy sent to your teacher."
+          : "File exported. Ask your teacher to request a re-export if needed.",
+      );
       exportToastTimerRef.current = window.setTimeout(() => {
         setExportToast(null);
         exportToastTimerRef.current = null;

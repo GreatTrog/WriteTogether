@@ -91,9 +91,8 @@ export type WordBankSnapshot = Pick<
   "id" | "fileName" | "meta" | "headings"
 >;
 
-// Vite eagerly inlines every word bank text file so we can parse them on boot.
+// Lazily load word bank text files to keep the initial bundle lighter.
 const rawModules = import.meta.glob<string>("../wordbanks/**/*.txt", {
-  eager: true,
   import: "default",
   query: "?raw",
 });
@@ -252,16 +251,7 @@ const parseWordBank = (raw: string, filePath: string): WordBankDocument => {
   };
 };
 
-// Build an in-memory catalog once so downstream hooks just filter arrays.
-const catalog: WordBankDocument[] = Object.entries(rawModules).map(
-  ([filePath, rawContent]) => parseWordBank(rawContent, filePath),
-);
-
-// Ensure dropdown options stay deduplicated and alphabetised.
-const unique = (values: string[]) =>
-  Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
-
-export const wordBankCatalog = catalog.sort((a, b) => {
+const sortCatalog = (a: WordBankDocument, b: WordBankDocument) => {
   const year = a.meta.year.localeCompare(b.meta.year);
   if (year !== 0) {
     return year;
@@ -280,23 +270,21 @@ export const wordBankCatalog = catalog.sort((a, b) => {
   const topicA = a.meta.topic ?? "";
   const topicB = b.meta.topic ?? "";
   return topicA.localeCompare(topicB);
-});
+};
 
-export const catalogYears = unique(wordBankCatalog.map((doc) => doc.meta.year));
+let catalogPromise: Promise<WordBankDocument[]> | null = null;
 
-export const catalogSubjectLinks = unique(
-  wordBankCatalog.flatMap((doc) => doc.meta.subject_links ?? []),
-);
-
-export const catalogReadingAges = unique(
-  wordBankCatalog
-    .map((doc) => doc.meta.reading_age)
-    .filter((value): value is string => Boolean(value)),
-);
-
-export const catalogSubTypes = unique(
-  wordBankCatalog.map((doc) => doc.meta.sub_type),
-);
+export const loadWordBankCatalog = async () => {
+  if (!catalogPromise) {
+    catalogPromise = Promise.all(
+      Object.entries(rawModules).map(async ([filePath, loader]) => {
+        const rawContent = await loader();
+        return parseWordBank(rawContent, filePath);
+      }),
+    ).then((entries) => entries.sort(sortCatalog));
+  }
+  return catalogPromise;
+};
 
 export const textTypeLabel = (value: TextType) =>
   TEXT_TYPE_LABELS.find((entry) => entry.value === value)?.label ?? value;

@@ -1,16 +1,13 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTeacherStore } from "../../store/useTeacherStore";
 import {
-  catalogReadingAges,
-  catalogSubjectLinks,
-  catalogSubTypes,
-  catalogYears,
   TEXT_TYPE_LABELS,
   TEXT_TYPE_SUBTYPES,
   TextType,
   textTypeLabel,
-  wordBankCatalog,
+  loadWordBankCatalog,
+  type WordBankDocument,
   type WordBankSnapshot,
 } from "../../services/wordBankCatalog";
 
@@ -43,6 +40,11 @@ const WordBanksPanel = () => {
   const { wordBanks, addWordBank } = useTeacherStore();
   const navigate = useNavigate();
 
+  const [catalog, setCatalog] = useState<WordBankDocument[]>([]);
+  const [catalogState, setCatalogState] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+
   const [query, setQuery] = useState("");
   const [yearFilter, setYearFilter] = useState<string>(ALL);
   const [textTypeFilter, setTextTypeFilter] = useState<string>(ALL);
@@ -59,19 +61,70 @@ const WordBanksPanel = () => {
   const [items, setItems] = useState("");
   const [description, setDescription] = useState("");
 
+  useEffect(() => {
+    let isMounted = true;
+    setCatalogState("loading");
+    loadWordBankCatalog()
+      .then((entries) => {
+        if (!isMounted) {
+          return;
+        }
+        setCatalog(entries);
+        setCatalogState("ready");
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!isMounted) {
+          return;
+        }
+        setCatalog([]);
+        setCatalogState("error");
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const unique = (values: string[]) =>
+    Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+
+  const catalogYears = useMemo(
+    () => unique(catalog.map((doc) => doc.meta.year)),
+    [catalog],
+  );
+  const catalogSubjectLinks = useMemo(
+    () => unique(catalog.flatMap((doc) => doc.meta.subject_links ?? [])),
+    [catalog],
+  );
+  const catalogReadingAges = useMemo(
+    () =>
+      unique(
+        catalog
+          .map((doc) => doc.meta.reading_age)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    [catalog],
+  );
+  const catalogSubTypes = useMemo(
+    () => unique(catalog.map((doc) => doc.meta.sub_type)),
+    [catalog],
+  );
+
   const availableSubTypes = useMemo(() => {
     // When a text type is chosen, limit the subtype filter to relevant options.
     if (textTypeFilter === ALL) {
-      return catalogSubTypes;
+      return catalogSubTypes.length > 0
+        ? catalogSubTypes
+        : Object.values(TEXT_TYPE_SUBTYPES).flat();
     }
     return TEXT_TYPE_SUBTYPES[textTypeFilter as TextType];
-  }, [textTypeFilter]);
+  }, [catalogSubTypes, textTypeFilter]);
 
   const filteredCatalog = useMemo(() => {
     // Apply the faceted filters to the locally bundled word bank catalog.
     const normalisedQuery = query.trim().toLowerCase();
 
-    return wordBankCatalog.filter((doc) => {
+    return catalog.filter((doc) => {
       if (yearFilter !== ALL && doc.meta.year !== yearFilter) {
         return false;
       }
@@ -108,6 +161,7 @@ const WordBanksPanel = () => {
     subTypeFilter,
     textTypeFilter,
     yearFilter,
+    catalog,
   ]);
 
   const hasFiltersApplied =
@@ -180,8 +234,9 @@ const WordBanksPanel = () => {
             </p>
           </div>
           <span className="ml-auto inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-            {filteredCatalog.length} result
-            {filteredCatalog.length === 1 ? "" : "s"}
+            {catalogState === "loading"
+              ? "Loading..."
+              : `${filteredCatalog.length} result${filteredCatalog.length === 1 ? "" : "s"}`}
           </span>
         </div>
 
@@ -294,7 +349,7 @@ const WordBanksPanel = () => {
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <p className="text-xs text-slate-500">
-            Results are parsed from the Word Bank schema text files bundled with the app.
+            Results are parsed from the Word Bank schema text files when this panel opens.
           </p>
           {hasFiltersApplied && (
             <button
@@ -308,7 +363,15 @@ const WordBanksPanel = () => {
         </div>
 
         <div className="mt-6 space-y-3">
-          {filteredCatalog.length === 0 ? (
+          {catalogState === "loading" ? (
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+              Loading word bank library...
+            </div>
+          ) : catalogState === "error" ? (
+            <div className="rounded-lg border border-dashed border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-700">
+              Unable to load the word bank library right now.
+            </div>
+          ) : filteredCatalog.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
               No word banks match the current filters. Adjust your search or clear all filters.
             </div>

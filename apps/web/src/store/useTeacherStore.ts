@@ -35,7 +35,7 @@ export type SharedFileRecord = {
   location: string;
   sizeBytes: number;
   wordCount: number;
-  dataUrl: string;
+  storageKey?: string | null;
 };
 
 type TeacherStore = {
@@ -199,7 +199,10 @@ export const useTeacherStore = create<TeacherStore>()(
               const sameIdentity =
                 existing.filename === record.filename &&
                 existing.username === record.username &&
-                (existing.savedAt === record.savedAt || existing.dataUrl === record.dataUrl);
+                (existing.savedAt === record.savedAt ||
+                  (existing.storageKey &&
+                    record.storageKey &&
+                    existing.storageKey === record.storageKey));
               return !sameIdentity;
             }),
           ],
@@ -215,7 +218,29 @@ export const useTeacherStore = create<TeacherStore>()(
         wordBanks: state.wordBanks,
         sharedFiles: state.sharedFiles,
       }),
-      version: 1,
+      version: 2,
+      migrate: (persistedState, version) => {
+        if (!persistedState) {
+          return persistedState;
+        }
+        if (version >= 2) {
+          return persistedState;
+        }
+        const state = persistedState as TeacherStore & {
+          sharedFiles?: Array<SharedFileRecord & { dataUrl?: string }>;
+        };
+        return {
+          ...state,
+          sharedFiles: (state.sharedFiles ?? []).map((entry) => {
+            const { dataUrl, ...rest } = entry;
+            void dataUrl;
+            return {
+              ...rest,
+              storageKey: entry.storageKey ?? null,
+            };
+          }),
+        };
+      },
       // Convert serialized dates back into Date instances once hydration finishes.
       onRehydrateStorage: () => (state) => {
         if (!state) {

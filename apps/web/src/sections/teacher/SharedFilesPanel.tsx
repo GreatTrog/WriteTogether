@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, type CSSProperties } from "react";
 import { useTeacherStore, type SharedFileRecord } from "../../store/useTeacherStore";
+import { getSharedFileBlob } from "../../services/sharedFileStorage";
 
 const SharedFilesPanel = () => {
   const linkButtonStyle: CSSProperties = {
@@ -30,20 +31,21 @@ const SharedFilesPanel = () => {
     });
   }, [sharedFiles, query]);
 
-  const openSharedFile = useCallback((file: SharedFileRecord) => {
+  const openSharedFile = useCallback(async (file: SharedFileRecord) => {
     try {
-      const [meta, base64] = file.dataUrl.split(",", 2);
-      if (!meta || !base64) {
-        throw new Error("Invalid data URL");
+      if (!file.storageKey) {
+        window.alert(
+          "This shared file is no longer stored locally. Ask the pupil to re-export it.",
+        );
+        return;
       }
-      const mimeMatch = meta.match(/data:(.*?);base64/);
-      const mimeType = mimeMatch?.[1] ?? "application/pdf";
-      const binary = window.atob(base64);
-      const buffer = new Uint8Array(binary.length);
-      for (let index = 0; index < binary.length; index += 1) {
-        buffer[index] = binary.charCodeAt(index);
+      const blob = await getSharedFileBlob(file.storageKey);
+      if (!blob) {
+        window.alert(
+          "We couldn't locate the PDF. Ask the pupil to re-export it.",
+        );
+        return;
       }
-      const blob = new Blob([buffer], { type: mimeType });
       const objectUrl = URL.createObjectURL(blob);
       const popup = window.open(objectUrl, "_blank", "noopener");
       if (!popup) {
@@ -119,17 +121,22 @@ const SharedFilesPanel = () => {
               {filteredFiles.map((file) => {
                 const savedAt = new Date(file.savedAt);
                 const sizeKb = Math.max(1, Math.round(file.sizeBytes / 1024));
+                const canOpen = Boolean(file.storageKey);
                 return (
                   <tr key={file.id} className="bg-white hover:bg-slate-50">
                     <td className="px-4 py-3 font-semibold text-slate-900">
-                      <button
-                        type="button"
-                        onClick={() => openSharedFile(file)}
-                        className="text-left text-sky-600 hover:underline"
-                        style={linkButtonStyle}
-                      >
-                        {file.filename}
-                      </button>
+                      {canOpen ? (
+                        <button
+                          type="button"
+                          onClick={() => openSharedFile(file)}
+                          className="text-left text-sky-600 hover:underline"
+                          style={linkButtonStyle}
+                        >
+                          {file.filename}
+                        </button>
+                      ) : (
+                        <span>{file.filename}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">{file.username}</td>
                     <td className="px-4 py-3">
@@ -141,14 +148,18 @@ const SharedFilesPanel = () => {
                     <td className="px-4 py-3">{file.location}</td>
                     <td className="px-4 py-3">{sizeKb} KB</td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openSharedFile(file)}
-                        className="text-sky-600 hover:underline"
-                        style={linkButtonStyle}
-                      >
-                        Open
-                      </button>
+                      {canOpen ? (
+                        <button
+                          type="button"
+                          onClick={() => openSharedFile(file)}
+                          className="text-sky-600 hover:underline"
+                          style={linkButtonStyle}
+                        >
+                          Open
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400">Unavailable</span>
+                      )}
                     </td>
                   </tr>
                 );

@@ -22,15 +22,15 @@ Legend:
 
 ## P1 (next)
 
-- [ ] **Add PDF export fallback** when `showSaveFilePicker` is unavailable  
+- [x] **Add PDF export fallback** when `showSaveFilePicker` is unavailable  
   Files: `apps/web/src/sections/mode-two/ModeTwoWorkspace.tsx`  
   Plan: `plans/P1-pdf-export-fallback.md`
 
-- [ ] **Stop storing PDF blobs in localStorage**; use IndexedDB or metadata-only  
+- [x] **Stop storing PDF blobs in localStorage**; use IndexedDB or metadata-only  
   Files: `apps/web/src/sections/mode-two/ModeTwoWorkspace.tsx`, `apps/web/src/stores/useTeacherStore.ts`  
   Plan: `plans/P1-stop-storing-pdf-blobs.md`
 
-- [ ] **Reduce bundle cost from wordbank parsing** (precompile or lazy-load)  
+- [x] **Reduce bundle cost from wordbank parsing** (precompile or lazy-load)  
   Files: `apps/web/src/wordbanks/wordBankCatalog.ts`  
   Plan: `plans/P1-wordbank-bundle-cost.md`
 
