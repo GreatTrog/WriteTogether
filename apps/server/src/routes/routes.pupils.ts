@@ -83,6 +83,7 @@ router.post("/login", async (req, res) => {
       user_metadata: {
         role: "pupil",
         pupil_id: payload.pupilId,
+        username,
       },
     });
 
@@ -152,12 +153,22 @@ router.post("/link", async (req, res) => {
       }
     }
 
+    const { data: pupilRow, error: pupilRowError } = await supabase
+      .from("pupils")
+      .select("username")
+      .eq("id", record.id)
+      .single();
+    if (pupilRowError) {
+      return res.status(400).send(pupilRowError.message);
+    }
+
     const { error: metaError } = await supabase.auth.admin.updateUserById(
       authUser.id,
       {
         user_metadata: {
           role: "pupil",
           pupil_id: record.id,
+          username: pupilRow?.username ?? null,
         },
       },
     );

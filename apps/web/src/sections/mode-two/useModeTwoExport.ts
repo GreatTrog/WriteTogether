@@ -71,6 +71,13 @@ const resolvePupilLogin = async () => {
   if (!pupilId) {
     return null;
   }
+  const metaUsername = user.user_metadata?.username;
+  if (typeof metaUsername === "string" && metaUsername.trim()) {
+    return {
+      pupilId,
+      username: metaUsername.trim(),
+    };
+  }
   const { data, error } = await supabase
     .from("pupils")
     .select("username")
