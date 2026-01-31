@@ -56,6 +56,7 @@ type TeacherStore = {
   addSharedFile: (
     file: Omit<SharedFileRecord, "id">,
   ) => void;
+  setSharedFiles: (files: SharedFileRecord[]) => void;
 };
 
 // Seed the preview with scaffolding so the UI has meaningful sample data.
@@ -206,6 +207,11 @@ export const useTeacherStore = create<TeacherStore>()(
               return !sameIdentity;
             }),
           ],
+        }));
+      },
+      setSharedFiles: (files) => {
+        set(() => ({
+          sharedFiles: files,
         }));
       },
     }),

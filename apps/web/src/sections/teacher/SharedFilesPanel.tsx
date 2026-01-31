@@ -1,6 +1,8 @@
-import { useCallback, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useTeacherStore, type SharedFileRecord } from "../../store/useTeacherStore";
 import { getSharedFileBlob } from "../../services/sharedFileStorage";
+import { supabase } from "../../services/supabaseClient";
+import useSupabaseSession from "../../hooks/useSupabaseSession";
 
 const SharedFilesPanel = () => {
   const linkButtonStyle: CSSProperties = {
@@ -11,7 +13,57 @@ const SharedFilesPanel = () => {
     cursor: "pointer",
   };
   const sharedFiles = useTeacherStore((state) => state.sharedFiles);
+  const setSharedFiles = useTeacherStore((state) => state.setSharedFiles);
+  const { user } = useSupabaseSession();
   const [query, setQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadSharedFiles = async () => {
+      if (!supabase || !user) {
+        return;
+      }
+      setIsLoading(true);
+      setLoadError(null);
+      const { data: profile, error: profileError } = await supabase
+        .from("teacher_profiles")
+        .select("id")
+        .eq("auth_user_id", user.id)
+        .single();
+      if (profileError || !profile?.id) {
+        setIsLoading(false);
+        setLoadError("Unable to load teacher profile.");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("shared_files")
+        .select(
+          "id,filename,username,saved_at,location,size_bytes,word_count,storage_key",
+        )
+        .eq("owner_id", profile.id)
+        .order("saved_at", { ascending: false });
+      if (error) {
+        setIsLoading(false);
+        setLoadError("Unable to load shared files.");
+        return;
+      }
+      const nextFiles: SharedFileRecord[] = (data ?? []).map((entry) => ({
+        id: entry.id,
+        filename: entry.filename,
+        username: entry.username,
+        savedAt: entry.saved_at,
+        location: entry.location,
+        sizeBytes: entry.size_bytes,
+        wordCount: entry.word_count,
+        storageKey: entry.storage_key,
+      }));
+      setSharedFiles(nextFiles);
+      setIsLoading(false);
+    };
+
+    void loadSharedFiles();
+  }, [setSharedFiles, user]);
 
   const filteredFiles = useMemo(() => {
     const search = query.trim().toLowerCase();
@@ -88,9 +140,15 @@ const SharedFilesPanel = () => {
         </span>
       </div>
 
-      {filteredFiles.length === 0 ? (
+      {loadError ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          {loadError}
+        </div>
+      ) : filteredFiles.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
-          No shared files yet. Ask pupils to export from Mode 2 to populate this list.
+          {isLoading
+            ? "Loading shared files..."
+            : "No shared files yet. Ask pupils to export from Mode 2 to populate this list."}
         </div>
       ) : (
         <div className="overflow-x-auto">

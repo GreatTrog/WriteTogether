@@ -10,6 +10,8 @@ import { type ExportState } from "./types";
 import { type SharedFileRecord } from "../../store/useTeacherStore";
 import { supabase } from "../../services/supabaseClient";
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+
 // pdfMake requires the virtual file system to load fonts in the browser bundle.
 const pdfMakeWithVfs = pdfMake as typeof pdfMake & { vfs?: Record<string, string> };
 const pdfFontsVfs = pdfFonts as unknown as Record<string, string>;
@@ -52,7 +54,7 @@ const resolveUsername = () => {
   }
 };
 
-const resolvePupilLoginName = async () => {
+const resolvePupilLogin = async () => {
   if (!supabase) {
     return null;
   }
@@ -78,7 +80,10 @@ const resolvePupilLoginName = async () => {
     console.warn("Unable to resolve pupil username:", error.message);
     return null;
   }
-  return data?.username ?? null;
+  return {
+    pupilId,
+    username: data?.username ?? null,
+  };
 };
 
 const slugify = (value: string) =>
@@ -98,6 +103,18 @@ const formatExportTimestamp = (date: Date) => {
     pad(date.getMinutes()),
   ].join("");
 };
+
+const blobToBase64 = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const base64 = result.split(",")[1] ?? "";
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Unable to read file."));
+    reader.readAsDataURL(blob);
+  });
 
 const escapeHtml = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -260,12 +277,12 @@ const useModeTwoExport = ({
       let fileHandle: Awaited<ReturnType<NonNullable<FilePickerWindow["showSaveFilePicker"]>>> | null =
         null;
 
-      const loginUsername = await resolvePupilLoginName();
-      const baseName = loginUsername
-        ? `${slugify(loginUsername) || "pupil"}_${formatExportTimestamp(now)}`
+      const pupilLogin = await resolvePupilLogin();
+      const baseName = pupilLogin?.username
+        ? `${slugify(pupilLogin.username) || "pupil"}_${formatExportTimestamp(now)}`
         : "";
 
-      if (loginUsername) {
+      if (pupilLogin?.username) {
         resolvedFilename = `${baseName}.pdf`;
       } else {
         const fallbackSeed = now
@@ -420,8 +437,55 @@ const useModeTwoExport = ({
       const teacherProfileId = await resolveTeacherProfileId();
       let storedInDb = false;
       let storageKey: string | null = null;
+      let sharedRecord: Omit<SharedFileRecord, "id"> | null = null;
 
-      if (teacherProfileId) {
+      if (pupilLogin?.pupilId) {
+        try {
+          const { data: sessionData } = await supabase!.auth.getSession();
+          const token = sessionData.session?.access_token;
+          if (!token) {
+            throw new Error("Missing pupil session token.");
+          }
+          const pdfBase64 = await blobToBase64(pdfBlob);
+          const response = await fetch(`${apiBaseUrl}/api/exports/submit`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              filename: resolvedFilename,
+              pdf_base64: pdfBase64,
+              word_count: wordCount,
+              saved_at: now.toISOString(),
+              size_bytes: pdfBlob.size,
+            }),
+          });
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || "Unable to submit export.");
+          }
+          const result = await response.json();
+          storageKey = result.storageKey ?? null;
+          storedInDb = Boolean(storageKey);
+          if (storedInDb) {
+            sharedRecord = {
+              filename: result.filename ?? resolvedFilename,
+              username: result.username ?? username,
+              savedAt: result.savedAt ?? now.toISOString(),
+              location: result.location ?? "Submitted by pupil",
+              sizeBytes: result.sizeBytes ?? pdfBlob.size,
+              wordCount: result.wordCount ?? wordCount,
+              storageKey,
+            };
+          }
+        } catch (error) {
+          console.warn(
+            "Pupil export submit failed:",
+            error instanceof Error ? error.message : error,
+          );
+        }
+      } else if (teacherProfileId) {
         const storagePath = await uploadExportToSupabase(
           teacherProfileId,
           resolvedFilename,
@@ -439,6 +503,17 @@ const useModeTwoExport = ({
             word_count: wordCount,
             storage_key: storageKey,
           });
+          if (storedInDb) {
+            sharedRecord = {
+              filename: resolvedFilename,
+              username,
+              savedAt: now.toISOString(),
+              location: savedLocation,
+              sizeBytes: pdfBlob.size,
+              wordCount,
+              storageKey,
+            };
+          }
         }
       }
 
@@ -452,26 +527,20 @@ const useModeTwoExport = ({
         storageKey = storedLocally ? localStorageKey : null;
       }
 
-      addSharedFile({
-        filename: resolvedFilename,
-        username,
-        savedAt: now.toISOString(),
-        location: savedLocation,
-        sizeBytes: pdfBlob.size,
-        wordCount,
-        storageKey,
-      });
+      if (sharedRecord) {
+        addSharedFile(sharedRecord);
+      }
 
       setExportState("success");
-      setExportMessage(`Saved and shared ${resolvedFilename}.`);
+      setExportMessage(`Saved ${resolvedFilename}.`);
       if (exportToastTimerRef.current !== null) {
         window.clearTimeout(exportToastTimerRef.current);
         exportToastTimerRef.current = null;
       }
       setExportToast(
         storedInDb
-          ? "File exported and a copy sent to your teacher."
-          : "File exported. Ask your teacher to request a re-export if needed.",
+          ? "File exported and shared with your teacher."
+          : "File exported locally. Ask your teacher to request a re-export.",
       );
       exportToastTimerRef.current = window.setTimeout(() => {
         setExportToast(null);
