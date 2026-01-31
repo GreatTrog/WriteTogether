@@ -1,6 +1,6 @@
 # Phase 1 - Next Steps
 
-This roadmap reflects the current client-only implementation (localStorage + build-time word banks)
+This roadmap reflects the current hybrid implementation (Supabase auth/storage + local fallbacks)
 and focuses only on incomplete work. Items are ordered by recommended delivery sequence.
 
 ## Locked decisions
@@ -8,29 +8,32 @@ and focuses only on incomplete work. Items are ordered by recommended delivery s
 - **Hosting:** Vercel.
 
 ## Recommended next steps (in order)
-1. **Supabase project setup + schema**  
-   Create the Supabase project, define tables for classes, assignments, word banks, shared files, and pupils, and set up RLS policies.
+1. **Admin superuser + invite gating**  
+   Create an admin role that can view all data, verify teacher accounts, and manage invites/authorization.
 
-2. **Supabase Auth integration**  
-   Implement teacher authentication (SSO + fallback) and gate teacher console routes.
+2. **Finish wiring teacher console to Supabase**  
+   Replace remaining client-only actions with Supabase queries/mutations and error handling for classes, assignments, and word banks.
 
-3. **Supabase Storage for exports**  
-   Store exported files in Supabase Storage with signed URLs and metadata records in Postgres.
+3. **Bulk pupil upload + deletion (teacher/admin)**  
+   Add CSV import/export, bulk delete/archive, and guardrails for irreversible actions.
 
-4. **Wire teacher console to Supabase**  
-   Replace client-only actions with Supabase queries/mutations and error handling for classes, assignments, and word banks.
+4. **LLM word bank generation (teacher accounts)**  
+   Integrate an LLM API to generate word banks using the app schema with safety checks and prompts.
 
-5. **Decide whether to keep client-side PDF export**  
+5. **Word bank expansion + navigation improvements**  
+   Expand catalog coverage and improve the word bank tab for faster creation, filtering, and management.
+
+6. **Decide whether to keep client-side PDF export**  
    If server export is still required, implement DOCX/PDF generation and store outputs in Supabase Storage.
 
-6. **Enhance Mode 1 content workflow**  
+7. **Enhance Mode 1 content workflow**  
    Add picture cues and slot-specific banks sourced from teacher-configured word banks.
 
-7. **Persist TTS preferences per pupil**  
+8. **Persist TTS preferences per pupil**  
    Store voice, rate, and pitch in pupil profiles and sync across modes.
 
-8. **Accessibility audit and fixes**  
+9. **Accessibility audit and fixes**  
    Validate keyboard alternatives, focus order, and ARIA labels (especially drag/drop).
 
-9. **Expand analytics pipeline**  
-   Capture autosave revisions, TTS plays, and word growth per session.
+10. **Expand analytics pipeline**  
+    Capture autosave revisions, TTS plays, and word growth per session.
