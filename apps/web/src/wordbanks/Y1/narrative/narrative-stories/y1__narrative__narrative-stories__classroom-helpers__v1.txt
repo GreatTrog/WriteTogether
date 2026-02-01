@@ -1,0 +1,25 @@
+Meta
+year: Y1
+text_type: narrative
+sub_type: narrative-stories
+topic: Classroom Helpers
+subject_links: English, PSHE
+keywords: classroom, helpers, tidy, share, kind, learning
+reading_age: 5-6
+author: WT
+version: 1
+
+Who
+The teacher, My friend, The class, The helper, Our group, The librarian
+
+Doing
+tidies, shares, helps, explains, listens, carries
+
+What
+the books, the pencils, the tray, the story, the board, the box
+
+Where
+in the classroom, by the reading corner, near the door, at the table, on the carpet
+
+When
+after lunch, in the morning, during tidy-up, before break, at the end

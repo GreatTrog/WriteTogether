@@ -1,0 +1,25 @@
+Meta
+year: Y1
+text_type: narrative
+sub_type: narrative-stories
+topic: The Lost Puppy
+subject_links: English, Science
+keywords: puppy, search, friend, park, home, brave
+reading_age: 5-6
+author: WT
+version: 1
+
+Who
+A puppy, The girl, The boy, The neighbour, The vet, The family
+
+Doing
+searched, called, spotted, followed, hugged, rescued
+
+What
+the path, the leash, the poster, the blanket, the gate, the tag
+
+Where
+in the park, by the trees, near the pond, on the street, at the gate
+
+When
+at sunset, after school, before dinner, in the afternoon, at last

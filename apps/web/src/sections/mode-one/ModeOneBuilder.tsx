@@ -5,7 +5,11 @@ import WorkspaceLayout from "../../layouts/WorkspaceLayout";
 import useSpeechSynthesis from "../../hooks/useSpeechSynthesis";
 import { useGlobalMenu } from "../../components/GlobalMenu";
 import VoiceRecorderControls from "../../components/VoiceRecorderControls";
-import { slotLabels, slotOrder, defaultChips } from "./data";
+import { slotLabels, slotOrder, defaultChips, type SemanticsChip } from "./data";
+import { useTeacherStore } from "../../store/useTeacherStore";
+import useSupabaseSession from "../../hooks/useSupabaseSession";
+import { supabase } from "../../services/supabaseClient";
+import { type WordBankSnapshot } from "../../services/wordBankCatalog";
 import "./ModeOneBuilder.css";
 
 type SlotState = Record<
@@ -47,6 +51,11 @@ const punctuationMarks = [
 
 const ModeOneBuilder = () => {
   const { setContent: setGlobalMenuContent } = useGlobalMenu();
+  const { user } = useSupabaseSession();
+  const isPupilSession =
+    Boolean(user) && user?.user_metadata?.role === "pupil";
+  const pupilId = user?.user_metadata?.pupil_id as string | undefined;
+  const assignments = useTeacherStore((state) => state.assignments);
   const [slotState, setSlotState] = useState<SlotState>(() => {
     if (typeof window === "undefined") {
       return initialState;
@@ -87,6 +96,33 @@ const ModeOneBuilder = () => {
   });
   const [draggingChip, setDraggingChip] = useState<string | null>(null);
   const [hoverSlot, setHoverSlot] = useState<ColourSlot | null>(null);
+  const [remoteAssignments, setRemoteAssignments] = useState<
+    Array<{
+      id: string;
+      title: string;
+      classId: string;
+      modeLock: "mode1" | "mode2";
+      wordBankIds: string[];
+      templateId: string | null;
+      dueAt: Date | null;
+      settings: {
+        slotsEnabled?: Array<ColourSlot>;
+      };
+      status: "draft" | "published";
+      catalogWordBanks?: Record<string, WordBankSnapshot>;
+    }>
+  >([]);
+  const [remoteBanks, setRemoteBanks] = useState<
+    Array<{
+      id: string;
+      category: string;
+      items: Array<{
+        id: string;
+        text: string;
+        slot?: ColourSlot;
+      }>;
+    }>
+  >([]);
 
   const { canSpeak, speak, stop, isSpeaking, voices } = useSpeechSynthesis({
     locale: "en-gb",
@@ -105,10 +141,171 @@ const ModeOneBuilder = () => {
     }
   }, [voices]);
 
+  useEffect(() => {
+    const loadRemoteAssignments = async () => {
+      if (!isPupilSession || !supabase || !pupilId) {
+        return;
+      }
+      try {
+        const { data: pupilRow, error: pupilError } = await supabase
+          .from("pupils")
+          .select("class_id, classes(owner_id)")
+          .eq("id", pupilId)
+          .single();
+        if (pupilError || !pupilRow?.class_id) {
+          setRemoteAssignments([]);
+          setRemoteBanks([]);
+          return;
+        }
+        const classId = pupilRow.class_id as string;
+        const ownerId = pupilRow.classes?.owner_id ?? null;
+
+        const { data: assignmentRows, error: assignmentError } = await supabase
+          .from("assignments")
+          .select(
+            "id,title,class_id,mode_lock,word_bank_ids,template_id,due_at,settings,status,catalog_word_banks",
+          )
+          .eq("class_id", classId)
+          .order("created_at", { ascending: false });
+
+        if (assignmentError) {
+          throw assignmentError;
+        }
+
+        const mappedAssignments =
+          assignmentRows?.map((row) => ({
+            id: row.id,
+            title: row.title,
+            classId: row.class_id,
+            modeLock: row.mode_lock ?? "mode2",
+            wordBankIds: row.word_bank_ids ?? [],
+            templateId: row.template_id ?? null,
+            dueAt: row.due_at ? new Date(row.due_at) : null,
+            settings: row.settings ?? {},
+            status: row.status ?? "published",
+            catalogWordBanks: row.catalog_word_banks ?? undefined,
+          })) ?? [];
+
+        setRemoteAssignments(mappedAssignments);
+
+        if (!ownerId) {
+          setRemoteBanks([]);
+          return;
+        }
+
+        const { data: bankRows, error: bankError } = await supabase
+          .from("word_banks")
+          .select("id,category,word_bank_items(id,text,slot)")
+          .eq("owner_id", ownerId)
+          .order("created_at", { ascending: false });
+
+        if (bankError) {
+          throw bankError;
+        }
+
+        const mappedBanks =
+          bankRows?.map((bank) => ({
+            id: bank.id,
+            category: bank.category ?? "nouns",
+            items: (bank.word_bank_items ?? []).map((item) => ({
+              id: item.id,
+              text: item.text,
+              slot: item.slot ?? undefined,
+            })),
+          })) ?? [];
+
+        setRemoteBanks(mappedBanks);
+      } catch (error) {
+        console.warn("Unable to load pupil Mode 1 assignments:", error);
+        setRemoteAssignments([]);
+        setRemoteBanks([]);
+      }
+    };
+
+    void loadRemoteAssignments();
+  }, [isPupilSession, pupilId]);
+
+  const activeAssignment = useMemo(() => {
+    const sourceAssignments = isPupilSession ? remoteAssignments : assignments;
+    const modeOneAssignments = sourceAssignments.filter(
+      (assignment) => assignment.modeLock === "mode1",
+    );
+    const published = modeOneAssignments.find(
+      (assignment) => assignment.status === "published",
+    );
+    return published ?? modeOneAssignments[0] ?? null;
+  }, [assignments, isPupilSession, remoteAssignments]);
+
+  const assignedChips = useMemo<SemanticsChip[]>(() => {
+    if (!activeAssignment) {
+      return [];
+    }
+
+    const slotLabelMap = new Map<string, ColourSlot>([
+      ["who", "who"],
+      ["doing", "doing"],
+      ["what", "what"],
+      ["where", "where"],
+      ["when", "when"],
+    ]);
+
+    const categorySlotMap: Record<string, ColourSlot | undefined> = {
+      nouns: "who",
+      verbs: "doing",
+      adjectives: "what",
+    };
+
+    const chips: SemanticsChip[] = [];
+
+    const catalogMap = activeAssignment.catalogWordBanks ?? {};
+    Object.entries(catalogMap).forEach(([catalogId, snapshot]) => {
+      snapshot.headings.forEach((heading, headingIndex) => {
+        const label = heading.label.trim().toLowerCase();
+        const slot = slotLabelMap.get(label);
+        if (!slot) {
+          return;
+        }
+        heading.items.forEach((item, itemIndex) => {
+          chips.push({
+            id: `${catalogId}::${headingIndex}::${itemIndex}`,
+            label: item.text,
+            slot,
+          });
+        });
+      });
+    });
+
+    const assignedBankIds = new Set(activeAssignment.wordBankIds ?? []);
+    const assignedBanks = remoteBanks.filter((bank) =>
+      assignedBankIds.has(bank.id),
+    );
+    assignedBanks.forEach((bank) => {
+      const fallbackSlot = categorySlotMap[bank.category];
+      bank.items.forEach((item, itemIndex) => {
+        const slot = item.slot ?? fallbackSlot;
+        if (!slot) {
+          return;
+        }
+        chips.push({
+          id: `bank::${bank.id}::${itemIndex}`,
+          label: item.text,
+          slot,
+        });
+      });
+    });
+
+    return chips;
+  }, [activeAssignment, remoteBanks]);
+
+  const availableChips = useMemo(
+    () => (assignedChips.length > 0 ? assignedChips : defaultChips),
+    [assignedChips],
+  );
+
   const chipsBySlot = useMemo(() => {
-    return slotOrder.reduce<Record<ColourSlot, typeof defaultChips>>(
+    return slotOrder.reduce<Record<ColourSlot, SemanticsChip[]>>(
       (acc, slot) => {
-        acc[slot] = defaultChips.filter((chip) => chip.slot === slot);
+        acc[slot] = availableChips.filter((chip) => chip.slot === slot);
         return acc;
       },
       {
@@ -119,7 +316,45 @@ const ModeOneBuilder = () => {
         when: [],
       },
     );
-  }, []);
+  }, [availableChips]);
+
+  useEffect(() => {
+    const chipIds = new Set(availableChips.map((chip) => chip.id));
+    setSlotState((prev) => {
+      let changed = false;
+      const next = cloneSlotState(prev);
+      slotOrder.forEach((slot) => {
+        if (next[slot].chipId && !chipIds.has(next[slot].chipId)) {
+          next[slot].chipId = undefined;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [availableChips]);
+
+  useEffect(() => {
+    const slotsEnabled = activeAssignment?.settings?.slotsEnabled;
+    if (!slotsEnabled || slotsEnabled.length === 0) {
+      return;
+    }
+    const enabledSet = new Set(slotsEnabled);
+    setSlotState((prev) => {
+      let changed = false;
+      const next = cloneSlotState(prev);
+      slotOrder.forEach((slot) => {
+        const shouldEnable = enabledSet.has(slot);
+        if (next[slot].enabled !== shouldEnable) {
+          next[slot].enabled = shouldEnable;
+          if (!shouldEnable) {
+            next[slot].chipId = undefined;
+          }
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [activeAssignment]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -152,7 +387,7 @@ const ModeOneBuilder = () => {
       if (!chipId) {
         return;
       }
-      const chip = defaultChips.find((item) => item.id === chipId);
+      const chip = availableChips.find((item) => item.id === chipId);
       if (!chip) {
         return;
       }
@@ -358,7 +593,7 @@ const ModeOneBuilder = () => {
 
         const chipId = slotState[slot].chipId;
         const chip = chipId
-          ? defaultChips.find((item) => item.id === chipId)
+          ? availableChips.find((item) => item.id === chipId)
           : undefined;
         const isHovering = hoverSlot === slot && draggingChip;
 

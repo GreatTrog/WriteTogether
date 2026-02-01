@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { useTeacherStore, type SharedFileRecord } from "../../store/useTeacherStore";
+import { type SharedFileRecord } from "../../types/sharedFiles";
 import { getSharedFileBlob } from "../../services/sharedFileStorage";
 import { supabase } from "../../services/supabaseClient";
 import useSupabaseSession from "../../hooks/useSupabaseSession";
@@ -12,8 +12,7 @@ const SharedFilesPanel = () => {
     font: "inherit",
     cursor: "pointer",
   };
-  const sharedFiles = useTeacherStore((state) => state.sharedFiles);
-  const setSharedFiles = useTeacherStore((state) => state.setSharedFiles);
+  const [sharedFiles, setSharedFiles] = useState<SharedFileRecord[]>([]);
   const { user } = useSupabaseSession();
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +62,7 @@ const SharedFilesPanel = () => {
     };
 
     void loadSharedFiles();
-  }, [setSharedFiles, user]);
+  }, [user]);
 
   const filteredFiles = useMemo(() => {
     const search = query.trim().toLowerCase();
@@ -87,15 +86,13 @@ const SharedFilesPanel = () => {
     try {
       if (!file.storageKey) {
         window.alert(
-          "This shared file is no longer stored locally. Ask the pupil to re-export it.",
+          "This shared file doesn't have a storage reference. Ask the pupil to re-export it.",
         );
         return;
       }
       const blob = await getSharedFileBlob(file.storageKey);
       if (!blob) {
-        window.alert(
-          "We couldn't locate the PDF. Ask the pupil to re-export it.",
-        );
+        window.alert("We couldn't locate the PDF. Ask the pupil to re-export it.");
         return;
       }
       const objectUrl = URL.createObjectURL(blob);

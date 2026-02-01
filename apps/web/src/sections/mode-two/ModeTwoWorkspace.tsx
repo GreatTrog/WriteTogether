@@ -5,6 +5,7 @@ import {
   CORE_WORD_CLASS_KEYS,
   CORE_WORD_CLASS_LABELS,
   type ModeTwoBank,
+  type CoreWordClass,
 } from "./data";
 import { useTeacherStore } from "../../store/useTeacherStore";
 import { useWorkspaceSettings } from "../../store/useWorkspaceSettings";
@@ -45,6 +46,48 @@ const canonicalCategoryWeight = canonicalCategoryOrder.reduce<Record<string, num
   },
   {},
 );
+
+const grammarTagMap: Record<string, CoreWordClass> = {
+  noun: "nouns",
+  nouns: "nouns",
+  verb: "verbs",
+  verbs: "verbs",
+  adjective: "adjectives",
+  adjectives: "adjectives",
+  adverbial: "adverbials",
+  adverbials: "adverbials",
+  connective: "connectives",
+  connectives: "connectives",
+  starter: "starters",
+  starters: "starters",
+};
+
+const splitMixedBank = (bank: ModeTwoBank): ModeTwoBank[] => {
+  if (bank.category !== "mixed") {
+    return [bank];
+  }
+  const grouped = new Map<string, ModeTwoBank["items"]>();
+  bank.items.forEach((item) => {
+    const grammarTag = item.tags?.find((tag) => tag.startsWith("grammar:"));
+    const rawKey = grammarTag ? grammarTag.replace("grammar:", "") : "additional";
+    const resolvedKey = grammarTagMap[rawKey] ?? rawKey;
+    if (!grouped.has(resolvedKey)) {
+      grouped.set(resolvedKey, []);
+    }
+    grouped.get(resolvedKey)!.push(item);
+  });
+
+  return Array.from(grouped.entries()).map(([key, items]) => ({
+    ...bank,
+    id: `${bank.id}::${key}`,
+    category: key,
+    categoryLabel:
+      Object.prototype.hasOwnProperty.call(CORE_WORD_CLASS_LABELS, key)
+        ? CORE_WORD_CLASS_LABELS[key as CoreWordClass]
+        : "Additional Words",
+    items,
+  }));
+};
 
 const ModeTwoWorkspace = () => {
   const { user } = useSupabaseSession();
@@ -608,7 +651,8 @@ const ModeTwoWorkspace = () => {
 
   const allCategoryBanks = useMemo(() => {
     const baseBanks = isPupilSession ? remoteBanks : libraryWordBanks;
-    return [...catalogCategoryBanks, ...baseBanks];
+    const expanded = baseBanks.flatMap(splitMixedBank);
+    return [...catalogCategoryBanks, ...expanded];
   }, [catalogCategoryBanks, isPupilSession, libraryWordBanks, remoteBanks]);
 
   const availableTopics = useMemo(() => {

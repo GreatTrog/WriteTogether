@@ -11,8 +11,8 @@ and focuses only on incomplete work. Items are ordered by recommended delivery s
 1. **Admin superuser + invite gating (in progress)**  
    Admin role, invite workflow, and admin console are implemented. Remaining: finish RLS hardening across all tables and verify admin visibility of all datasets.
 
-2. **Finish wiring teacher console to Supabase**  
-   Replace remaining client-only actions with Supabase queries/mutations and error handling for classes, assignments, and word banks.
+2. **Finish wiring teacher console to Supabase (in progress)**  
+   Classes, pupils, assignments, word banks, analytics, and shared files now load from Supabase. Remaining: remove the last local-store type dependencies, verify storage downloads, and QA all panels end-to-end.
 
 3. **Bulk pupil upload + deletion (teacher/admin)**  
    Add CSV import/export, bulk delete/archive, and guardrails for irreversible actions.

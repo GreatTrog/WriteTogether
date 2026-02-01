@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import type { Assignment, WordBank } from "@writetogether/schema";
 import { modeTwoBanks, type ModeTwoBank } from "../sections/mode-two/data";
 import type { WordBankSnapshot } from "../services/wordBankCatalog";
+import type { SharedFileRecord } from "../types/sharedFiles";
 import { createId } from "../utils/createId";
 import { generateJoinCode } from "../utils/generateJoinCode";
 
@@ -25,17 +26,6 @@ export type TeacherAssignment = Assignment & {
   title: string;
   status: "draft" | "published";
   catalogWordBanks?: Record<string, WordBankSnapshot>;
-};
-
-export type SharedFileRecord = {
-  id: string;
-  filename: string;
-  username: string;
-  savedAt: string;
-  location: string;
-  sizeBytes: number;
-  wordCount: number;
-  storageKey?: string | null;
 };
 
 type TeacherStore = {

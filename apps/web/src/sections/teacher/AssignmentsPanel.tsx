@@ -3,9 +3,11 @@ import {
   createAssignment,
   fetchAssignments,
   fetchClassesWithPupils,
+  fetchSubjectLinks,
   fetchTeacherWordBanks,
   type TeacherAssignment,
   type TeacherClass,
+  type TeacherSubjectLink,
   type TeacherWordBank,
 } from "../../services/teacherData";
 import {
@@ -31,6 +33,7 @@ type AssignmentBankOption = {
   source: "library" | "catalog";
   itemCount: number;
   tags: string[];
+  mode: "mode1" | "mode2";
   catalogDetails?: WordBankSnapshot;
   items?: Array<{
     text: string;
@@ -39,7 +42,16 @@ type AssignmentBankOption = {
   }>;
 };
 
-const makeCatalogOption = (payload: CatalogWordBankPayload): AssignmentBankOption => {
+const resolveCatalogMode = (payload: WordBankDocument): "mode1" | "mode2" => {
+  const slotLabels = new Set(["who", "doing", "what", "where", "when"]);
+  const headingLabels = payload.headings.map((heading) =>
+    heading.label.trim().toLowerCase(),
+  );
+  const hasSlotHeading = headingLabels.some((label) => slotLabels.has(label));
+  return hasSlotHeading ? "mode1" : "mode2";
+};
+
+const makeCatalogOption = (payload: WordBankDocument): AssignmentBankOption => {
   const cleanedSubtype = payload.meta.sub_type.replace(/-/g, " ");
   const fallbackTitle = payload.fileName.replace(/\.txt$/, "");
   const primaryTopic = payload.meta.topic?.trim() ?? "";
@@ -68,6 +80,7 @@ const makeCatalogOption = (payload: CatalogWordBankPayload): AssignmentBankOptio
     source: "catalog",
     itemCount: totalItems,
     tags: payload.meta.keywords ?? [],
+    mode: resolveCatalogMode(payload),
     catalogDetails: payload,
   };
 };
@@ -99,20 +112,24 @@ const AssignmentsPanel = () => {
   const [bankSourceFilter, setBankSourceFilter] = useState<
     "all" | "catalog" | "custom"
   >("all");
+  const [subjectLinks, setSubjectLinks] = useState<TeacherSubjectLink[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [classData, assignmentData, bankData] = await Promise.all([
-          fetchClassesWithPupils(),
-          fetchAssignments(),
-          fetchTeacherWordBanks(),
+        const [classData, assignmentData, bankData, subjectRows] =
+          await Promise.all([
+            fetchClassesWithPupils(),
+            fetchAssignments(),
+            fetchTeacherWordBanks(),
+            fetchSubjectLinks(),
         ]);
         setClasses(classData);
         setAssignments(assignmentData);
         setWordBanks(bankData);
+        setSubjectLinks(subjectRows);
         setSelectedBanks(bankData.slice(0, 4).map((bank) => bank.id));
       } catch (err) {
         setError(
@@ -228,13 +245,11 @@ const AssignmentsPanel = () => {
   ]);
 
   const libraryBanks = useMemo<AssignmentBankOption[]>(() => {
-    // Filter the static demo banks to match the chosen pupil mode.
-    const allowedCategories =
-      mode === "mode1" ? new Set(["verbs", "nouns", "adjectives"]) : null;
+    const modeOneCategories = new Set(["verbs", "nouns", "adjectives"]);
 
     return wordBanks
       .filter((bank) =>
-        allowedCategories ? allowedCategories.has(bank.category) : true,
+        subjectFilter === "all" ? true : bank.topic === subjectFilter,
       )
       .map((bank) => ({
         id: bank.id,
@@ -244,17 +259,32 @@ const AssignmentsPanel = () => {
         source: "library" as const,
         itemCount: bank.items.length,
         tags: bank.tags ?? [],
+        mode: modeOneCategories.has(bank.category) ? "mode1" : "mode2",
         items: bank.items,
       }));
-  }, [wordBanks, mode]);
+  }, [subjectFilter, wordBanks]);
 
   const catalogOptions = useMemo<AssignmentBankOption[]>(
     () => filteredCatalog.map(makeCatalogOption),
     [filteredCatalog],
   );
 
+  const subjectOptions = useMemo(() => {
+    return unique([
+      "English",
+      "Science",
+      "Geography",
+      "History",
+      "PSHE",
+      ...subjectLinks.map((topic) => topic.label),
+      ...catalogSubjectLinks,
+    ]).filter(Boolean);
+  }, [catalogSubjectLinks, subjectLinks]);
+
   const availableBanks = useMemo<AssignmentBankOption[]>(() => {
-    const combined = [...catalogOptions, ...libraryBanks];
+    const combined = [...catalogOptions, ...libraryBanks].filter(
+      (bank) => bank.mode === mode,
+    );
     if (bankSourceFilter === "catalog") {
       return combined.filter((bank) => bank.source === "catalog");
     }
@@ -262,7 +292,12 @@ const AssignmentsPanel = () => {
       return combined.filter((bank) => bank.source === "library");
     }
     return combined;
-  }, [bankSourceFilter, catalogOptions, libraryBanks]);
+  }, [bankSourceFilter, catalogOptions, libraryBanks, mode]);
+
+  useEffect(() => {
+    const allowed = new Set(availableBanks.map((bank) => bank.id));
+    setSelectedBanks((prev) => prev.filter((id) => allowed.has(id)));
+  }, [availableBanks]);
 
   const pinnedBanksOverflow = selectedBanks.length > 6;
 
@@ -429,6 +464,23 @@ const AssignmentsPanel = () => {
                     className="mt-1 w-full rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
                   />
                 </label>
+                {subjectOptions.length > 0 && (
+                  <label className="text-xs font-medium text-slate-600">
+                    Subject link
+                    <select
+                      value={subjectFilter}
+                      onChange={(event) => setSubjectFilter(event.target.value)}
+                      className="mt-1 w-full rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+                    >
+                      <option value="all">All subjects</option>
+                      {subjectOptions.map((subject) => (
+                        <option key={subject} value={subject}>
+                          {subject}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <label className="text-xs font-medium text-slate-600">
                   Year group
                   <select
@@ -500,23 +552,6 @@ const AssignmentsPanel = () => {
                     ))}
                   </select>
                 </label>
-                {catalogSubjectLinks.length > 0 && (
-                  <label className="text-xs font-medium text-slate-600">
-                    Subject links
-                    <select
-                      value={subjectFilter}
-                      onChange={(event) => setSubjectFilter(event.target.value)}
-                      className="mt-1 w-full rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
-                    >
-                      <option value="all">All subjects</option>
-                      {catalogSubjectLinks.map((subject) => (
-                        <option key={subject} value={subject}>
-                          {subject}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
                 {catalogReadingAges.length > 0 && (
                   <label className="text-xs font-medium text-slate-600">
                     Reading age

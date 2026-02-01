@@ -2,14 +2,44 @@ import { useEffect, useMemo, useState } from "react";
 
 import { normaliseTimeline, rollingAverage } from "@writetogether/analytics";
 
-import { useTeacherStore } from "../../store/useTeacherStore";
+import {
+  fetchAssignments,
+  fetchClassesWithPupils,
+  type TeacherAssignment,
+  type TeacherClass,
+} from "../../services/teacherData";
 
 const draftStorageKey = "writetogether-mode2-draft";
 
-// Converts the mock store into insight tiles for the preview dashboard.
 const AnalyticsPanel = () => {
-  const { classes, assignments } = useTeacherStore();
+  const [classes, setClasses] = useState<TeacherClass[]>([]);
+  const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentDraftWords, setCurrentDraftWords] = useState(0);
+
+  useEffect(() => {
+    const loadAnalytics = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [classData, assignmentData] = await Promise.all([
+          fetchClassesWithPupils(),
+          fetchAssignments(),
+        ]);
+        setClasses(classData);
+        setAssignments(assignmentData);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Unable to load analytics.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadAnalytics();
+  }, []);
 
   useEffect(() => {
     // Check the Mode 2 draft cache to simulate a live writing signal.
@@ -32,19 +62,17 @@ const AnalyticsPanel = () => {
     );
     const mode2Pupils = pupilCount - mode1Pupils;
 
-    const ttsAssignments = assignments.filter(
-      (assignment) => assignment.settings?.enableTTS,
+    const totalAssignments = assignments.length;
+    const publishedAssignments = assignments.filter(
+      (assignment) => assignment.status === "published",
     ).length;
-
-    const wordLimits = assignments
-      .map((assignment) => assignment.settings?.wordLimit)
-      .filter((limit): limit is number => typeof limit === "number");
-
-    const averageWordLimit =
-      wordLimits.length > 0
+    const averageBanks =
+      totalAssignments > 0
         ? Math.round(
-            wordLimits.reduce((sum, limit) => sum + limit, 0) /
-              wordLimits.length,
+            assignments.reduce(
+              (sum, assignment) => sum + assignment.wordBankIds.length,
+              0,
+            ) / totalAssignments,
           )
         : 0;
 
@@ -63,8 +91,9 @@ const AnalyticsPanel = () => {
       pupilCount,
       mode1Pupils,
       mode2Pupils,
-      ttsAssignments,
-      averageWordLimit,
+      totalAssignments,
+      publishedAssignments,
+      averageBanks,
       busiestBanks,
     };
   }, [classes, assignments]);
@@ -108,7 +137,7 @@ const AnalyticsPanel = () => {
             Pupils onboarded
           </p>
           <p className="mt-2 text-2xl font-bold text-slate-900">
-            {totals.pupilCount}
+            {loading ? "--" : totals.pupilCount}
           </p>
           <p className="text-xs text-slate-500">
             {totals.mode1Pupils} on Mode 1 - {totals.mode2Pupils} on Mode 2
@@ -116,49 +145,79 @@ const AnalyticsPanel = () => {
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Assignments with TTS
+            Total assignments
           </p>
           <p className="mt-2 text-2xl font-bold text-slate-900">
-            {totals.ttsAssignments}
+            {loading ? "--" : totals.totalAssignments}
           </p>
           <p className="text-xs text-slate-500">
-            {currentDraftWords} words in current pupil draft
+            {totals.publishedAssignments} published
           </p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Typical word limit
+            Average banks per task
           </p>
           <p className="mt-2 text-2xl font-bold text-slate-900">
-            {totals.averageWordLimit || "--"}
+            {loading ? "--" : totals.averageBanks || "--"}
           </p>
           <p className="text-xs text-slate-500">
-            Average limit across published tasks
+            Based on saved assignments
           </p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Current draft words
+          </p>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            {currentDraftWords || "--"}
+          </p>
+          <p className="text-xs text-slate-500">
+            From the most recent Mode 2 draft
+          </p>
+        </div>
+      </section>
+
+      {error ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          {error}
+        </div>
+      ) : null}
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-semibold text-slate-900">
             Busy word banks
-          </p>
-          <ul className="mt-2 space-y-1 text-xs text-slate-600">
-            {totals.busiestBanks.length === 0 ? (
-              <li>No data yet</li>
-            ) : (
-              totals.busiestBanks.map(([bankId, count]) => (
-                <li key={bankId}>
-                  {bankId} - {count} assignment(s)
-                </li>
-              ))
-            )}
-          </ul>
+          </h2>
+          <span className="ml-auto rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+            {totals.busiestBanks.length}
+          </span>
         </div>
+        <ul className="mt-3 space-y-2 text-sm text-slate-700">
+          {totals.busiestBanks.length === 0 ? (
+            <li className="rounded-md bg-slate-50 px-3 py-2 text-slate-600">
+              No bank usage data yet.
+            </li>
+          ) : (
+            totals.busiestBanks.map(([bankId, count]) => (
+              <li key={bankId} className="rounded-md bg-slate-50 px-3 py-2">
+                <p className="font-medium text-slate-900">{bankId}</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  {count} assignment(s)
+                </p>
+              </li>
+            ))
+          )}
+        </ul>
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">
           Bank usage trend (rolling average)
         </h2>
-        {timeline.length === 0 ? (
+        {loading ? (
+          <p className="mt-2 text-sm text-slate-600">Loading trend...</p>
+        ) : timeline.length === 0 ? (
           <p className="mt-2 text-sm text-slate-600">
             Create more assignments to unlock trend insights.
           </p>

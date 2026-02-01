@@ -98,11 +98,28 @@ export type TeacherWordBank = {
   }>;
 };
 
+export type TeacherSubjectLink = {
+  id: string;
+  label: string;
+  slug: string;
+  ownerId: string | null;
+  archivedAt: string | null;
+};
+
 const requireSupabase = () => {
   if (!supabase) {
     throw new Error("Supabase is not configured.");
   }
   return supabase;
+};
+
+export const normalizeSubjectSlug = (value: string) => {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 };
 
 export const resolveTeacherProfileId = async () => {
@@ -389,6 +406,88 @@ export const fetchTeacherWordBanks = async (): Promise<TeacherWordBank[]> => {
       slot: item.slot ?? undefined,
     })),
   })) as TeacherWordBank[];
+};
+
+export const fetchSubjectLinks = async (): Promise<TeacherSubjectLink[]> => {
+  const client = requireSupabase();
+  const ownerId = await resolveTeacherProfileId();
+  const filters = ownerId
+    ? `owner_id.is.null,owner_id.eq.${ownerId}`
+    : "owner_id.is.null";
+  const { data, error } = await client
+    .from("subject_links")
+    .select("id,label,slug,owner_id,archived_at")
+    .or(filters)
+    .is("archived_at", null)
+    .order("label", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (
+    data?.map((row) => ({
+      id: row.id,
+      label: row.label,
+      slug: row.slug,
+      ownerId: row.owner_id ?? null,
+      archivedAt: row.archived_at ?? null,
+    })) ?? []
+  );
+};
+
+export const createSubjectLink = async (
+  label: string,
+): Promise<TeacherSubjectLink> => {
+  const client = requireSupabase();
+  const ownerId = await resolveTeacherProfileId();
+  if (!ownerId) {
+    throw new Error("Unable to resolve teacher profile.");
+  }
+  const slug = normalizeSubjectSlug(label);
+  if (!slug) {
+    throw new Error("Subject link name is required.");
+  }
+
+  const { data, error } = await client
+    .from("subject_links")
+    .insert({
+      label: label.trim(),
+      slug,
+      owner_id: ownerId,
+    })
+    .select("id,label,slug,owner_id,archived_at")
+    .single();
+
+  if (!error && data) {
+    return {
+      id: data.id,
+      label: data.label,
+      slug: data.slug,
+      ownerId: data.owner_id ?? null,
+      archivedAt: data.archived_at ?? null,
+    };
+  }
+
+  const { data: existing, error: existingError } = await client
+    .from("subject_links")
+    .select("id,label,slug,owner_id,archived_at")
+    .eq("owner_id", ownerId)
+    .eq("slug", slug)
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (existingError || !existing) {
+    throw new Error(error?.message ?? "Unable to create topic.");
+  }
+
+  return {
+    id: existing.id,
+    label: existing.label,
+    slug: existing.slug,
+    ownerId: existing.owner_id ?? null,
+    archivedAt: existing.archived_at ?? null,
+  };
 };
 
 export const createTeacherWordBank = async (
