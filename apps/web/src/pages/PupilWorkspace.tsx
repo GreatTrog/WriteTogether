@@ -2,8 +2,48 @@ import { Link, Route, Routes } from "react-router-dom";
 import ModeOneBuilder from "../sections/mode-one/ModeOneBuilder";
 import ModeTwoWorkspace from "../sections/mode-two/ModeTwoWorkspace";
 import PupilLoginPanel from "../sections/pupil/PupilLoginPanel";
+import useSupabaseSession from "../hooks/useSupabaseSession";
+import { supabase } from "../services/supabaseClient";
 
 const PupilWorkspace = () => {
+  const { session, user, loading } = useSupabaseSession();
+  const role = user?.user_metadata?.role;
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+        Loading pupil session...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-slate-600">
+        <PupilLoginPanel />
+      </div>
+    );
+  }
+
+  if (role && role !== "pupil" && role !== "admin" && role !== "teacher") {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-slate-600">
+        <p className="text-sm text-slate-600">
+          This area is for pupil accounts. Please sign in with a pupil login.
+        </p>
+        {supabase ? (
+          <button
+            type="button"
+            onClick={() => supabase.auth.signOut()}
+            className="mt-4 inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+          >
+            Sign out
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
   // Presents either scaffold depending on the selected mode path.
   return (
     <div className="flex flex-col overflow-hidden">
@@ -13,7 +53,6 @@ const PupilWorkspace = () => {
             index
             element={
               <div className="flex h-full w-full flex-col gap-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-slate-600">
-                <PupilLoginPanel />
                 <div className="max-w-2xl space-y-2 self-center">
                   <h2 className="text-2xl font-semibold text-slate-900">Choose your writing mode</h2>
                   <p className="text-sm text-slate-600">

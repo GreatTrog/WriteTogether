@@ -33,6 +33,9 @@ const requireAuthUser = async (token?: string) => {
   return data.user;
 };
 
+const isAdminUser = (user: Awaited<ReturnType<typeof requireAuthUser>>) =>
+  user.user_metadata?.role === "admin";
+
 router.post("/login", async (req, res) => {
   const bodySchema = z.object({
     pupilId: z.string().uuid(),
@@ -45,14 +48,19 @@ router.post("/login", async (req, res) => {
     const authUser = await requireAuthUser(token);
     const payload = bodySchema.parse(req.body);
     const supabase = requireSupabaseAdmin();
+    const isAdmin = isAdminUser(authUser);
 
-    const { data: teacherProfile, error: teacherError } = await supabase
-      .from("teacher_profiles")
-      .select("id")
-      .eq("auth_user_id", authUser.id)
-      .single();
-    if (teacherError || !teacherProfile) {
-      return res.status(403).send("Teacher profile not found.");
+    let teacherProfileId: string | null = null;
+    if (!isAdmin) {
+      const { data: teacherProfile, error: teacherError } = await supabase
+        .from("teacher_profiles")
+        .select("id")
+        .eq("auth_user_id", authUser.id)
+        .single();
+      if (teacherError || !teacherProfile) {
+        return res.status(403).send("Teacher profile not found.");
+      }
+      teacherProfileId = teacherProfile.id;
     }
 
     const { data: pupilRow, error: pupilError } = await supabase
@@ -66,7 +74,7 @@ router.post("/login", async (req, res) => {
 
     const ownerId =
       pupilRow.owner_id ?? (await resolveClassOwnerId(pupilRow.class_id)) ?? null;
-    if (ownerId !== teacherProfile.id) {
+    if (!isAdmin && ownerId !== teacherProfileId) {
       return res.status(403).send("Not allowed to create login for this pupil.");
     }
 
@@ -189,14 +197,19 @@ router.get("/:pupilId/password", async (req, res) => {
     const authUser = await requireAuthUser(token);
     const pupilId = z.string().uuid().parse(req.params.pupilId);
     const supabase = requireSupabaseAdmin();
+    const isAdmin = isAdminUser(authUser);
 
-    const { data: teacherProfile, error: teacherError } = await supabase
-      .from("teacher_profiles")
-      .select("id")
-      .eq("auth_user_id", authUser.id)
-      .single();
-    if (teacherError || !teacherProfile) {
-      return res.status(403).send("Teacher profile not found.");
+    let teacherProfileId: string | null = null;
+    if (!isAdmin) {
+      const { data: teacherProfile, error: teacherError } = await supabase
+        .from("teacher_profiles")
+        .select("id")
+        .eq("auth_user_id", authUser.id)
+        .single();
+      if (teacherError || !teacherProfile) {
+        return res.status(403).send("Teacher profile not found.");
+      }
+      teacherProfileId = teacherProfile.id;
     }
 
     const { data: pupilRow, error: pupilError } = await supabase
@@ -210,7 +223,7 @@ router.get("/:pupilId/password", async (req, res) => {
 
     const ownerId =
       pupilRow.owner_id ?? (await resolveClassOwnerId(pupilRow.class_id)) ?? null;
-    if (ownerId !== teacherProfile.id) {
+    if (!isAdmin && ownerId !== teacherProfileId) {
       return res.status(403).send("Not allowed to view this password.");
     }
 
@@ -237,14 +250,19 @@ router.post("/:pupilId/reset-password", async (req, res) => {
     const pupilId = z.string().uuid().parse(req.params.pupilId);
     const { password } = bodySchema.parse(req.body);
     const supabase = requireSupabaseAdmin();
+    const isAdmin = isAdminUser(authUser);
 
-    const { data: teacherProfile, error: teacherError } = await supabase
-      .from("teacher_profiles")
-      .select("id")
-      .eq("auth_user_id", authUser.id)
-      .single();
-    if (teacherError || !teacherProfile) {
-      return res.status(403).send("Teacher profile not found.");
+    let teacherProfileId: string | null = null;
+    if (!isAdmin) {
+      const { data: teacherProfile, error: teacherError } = await supabase
+        .from("teacher_profiles")
+        .select("id")
+        .eq("auth_user_id", authUser.id)
+        .single();
+      if (teacherError || !teacherProfile) {
+        return res.status(403).send("Teacher profile not found.");
+      }
+      teacherProfileId = teacherProfile.id;
     }
 
     const { data: pupilRow, error: pupilError } = await supabase
@@ -258,7 +276,7 @@ router.post("/:pupilId/reset-password", async (req, res) => {
 
     const ownerId =
       pupilRow.owner_id ?? (await resolveClassOwnerId(pupilRow.class_id)) ?? null;
-    if (ownerId !== teacherProfile.id) {
+    if (!isAdmin && ownerId !== teacherProfileId) {
       return res.status(403).send("Not allowed to reset this password.");
     }
 
