@@ -10,6 +10,7 @@ import { useTeacherStore } from "../../store/useTeacherStore";
 import useSupabaseSession from "../../hooks/useSupabaseSession";
 import { supabase } from "../../services/supabaseClient";
 import { type WordBankSnapshot } from "../../services/wordBankCatalog";
+import { stripWordBankBrackets } from "../../utils/wordBankText";
 import "./ModeOneBuilder.css";
 
 type SlotState = Record<
@@ -318,7 +319,7 @@ const ModeOneBuilder = () => {
         heading.items.forEach((item, itemIndex) => {
           chips.push({
             id: `${catalogId}::${headingIndex}::${itemIndex}`,
-            label: item.text,
+            label: stripWordBankBrackets(item.text),
             slot,
           });
         });
@@ -338,7 +339,7 @@ const ModeOneBuilder = () => {
         }
         chips.push({
           id: `bank::${bank.id}::${itemIndex}`,
-          label: item.text,
+          label: stripWordBankBrackets(item.text),
           slot,
         });
       });

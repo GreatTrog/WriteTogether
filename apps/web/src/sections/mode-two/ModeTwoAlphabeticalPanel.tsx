@@ -1,4 +1,5 @@
 import { type AlphabeticalBucket } from "./modeTwoBankUtils";
+import { stripWordBankBrackets } from "../../utils/wordBankText";
 
 type ModeTwoAlphabeticalPanelProps = {
   buckets: AlphabeticalBucket[];
@@ -44,16 +45,19 @@ const ModeTwoAlphabeticalPanel = ({
         <span className="mode-two-chip">{activeBucket.items.length}</span>
       </div>
       <div className="mode-two-alpha-grid">
-        {activeBucket.items.map((item) => (
-          <button
-            key={`${activeBucket.letter}-${item.id}`}
-            type="button"
-            onClick={() => onInsertToken(item.text)}
-            className="mode-two-token"
-          >
-            {item.text}
-          </button>
-        ))}
+        {activeBucket.items.map((item) => {
+          const displayText = stripWordBankBrackets(item.text);
+          return (
+            <button
+              key={`${activeBucket.letter}-${item.id}`}
+              type="button"
+              onClick={() => onInsertToken(displayText)}
+              className="mode-two-token"
+            >
+              {displayText}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

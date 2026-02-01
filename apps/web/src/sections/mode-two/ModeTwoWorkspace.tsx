@@ -13,6 +13,7 @@ import { type WordBankSnapshot } from "../../services/wordBankCatalog";
 import { useGlobalMenu } from "../../components/GlobalMenu";
 import useSupabaseSession from "../../hooks/useSupabaseSession";
 import { supabase } from "../../services/supabaseClient";
+import { stripWordBankBrackets } from "../../utils/wordBankText";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -771,7 +772,7 @@ const ModeTwoWorkspace = () => {
 
     filteredBanks.forEach((bank) => {
       bank.items.forEach((item) => {
-        const trimmed = item.text.trim();
+        const trimmed = stripWordBankBrackets(item.text);
         if (!trimmed) {
           return;
         }
@@ -814,7 +815,8 @@ const ModeTwoWorkspace = () => {
     if (!editor) {
       return;
     }
-    const insertion = token.endsWith(" ") ? token : `${token} `;
+    const cleaned = stripWordBankBrackets(token);
+    const insertion = cleaned.endsWith(" ") ? cleaned : `${cleaned} `;
     editor
       .chain()
       .focus()

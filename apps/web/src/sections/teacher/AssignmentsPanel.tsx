@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   createAssignment,
   deleteAssignment,
@@ -114,6 +114,8 @@ const AssignmentsPanel = () => {
     "all" | "catalog" | "custom"
   >("all");
   const [subjectLinks, setSubjectLinks] = useState<TeacherSubjectLink[]>([]);
+  const [assignmentToast, setAssignmentToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -317,6 +319,18 @@ const AssignmentsPanel = () => {
     setExpandedBankId((prev) => (prev === bankId ? null : bankId));
   };
 
+  const showToast = (message: string) => {
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    setAssignmentToast(message);
+    toastTimerRef.current = window.setTimeout(() => {
+      setAssignmentToast(null);
+      toastTimerRef.current = null;
+    }, 3200);
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     // Snapshot the assignment into Zustand which acts as our stub data layer.
     event.preventDefault();
@@ -371,6 +385,7 @@ const AssignmentsPanel = () => {
       setTitle("");
       setSelectedBanks(wordBanks.slice(0, 4).map((bank) => bank.id));
       setAssignments((prev) => [saved, ...prev]);
+      showToast("Assignment created.");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Unable to save assignment.",
@@ -409,6 +424,14 @@ const AssignmentsPanel = () => {
       setIsDeleting(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -815,6 +838,13 @@ const AssignmentsPanel = () => {
         </div>
           );
         })()
+      ) : null}
+      {assignmentToast ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-lg">
+            {assignmentToast}
+          </div>
+        </div>
       ) : null}
     </div>
   );

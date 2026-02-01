@@ -1,5 +1,6 @@
 import { type ModeTwoBank } from "./data";
 import { resolveCategoryMeta } from "./modeTwoBankUtils";
+import { stripWordBankBrackets } from "../../utils/wordBankText";
 
 type ModeTwoBankPanelProps = {
   banks: ModeTwoBank[];
@@ -36,16 +37,19 @@ const ModeTwoBankPanel = ({
               <span className="mode-two-chip">{bank.items.length}</span>
             </div>
             <div className="mode-two-token-list">
-              {bank.items.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onInsertToken(item.text)}
-                  className="mode-two-token"
-                >
-                  {item.text}
-                </button>
-              ))}
+              {bank.items.map((item) => {
+                const displayText = stripWordBankBrackets(item.text);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onInsertToken(displayText)}
+                    className="mode-two-token"
+                  >
+                    {displayText}
+                  </button>
+                );
+              })}
             </div>
           </div>
         );

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   createTeacherWordBank,
   createSubjectLink,
@@ -11,6 +11,10 @@ import {
   type TeacherWordBank,
 } from "../../services/teacherData";
 import { loadWordBankCatalog } from "../../services/wordBankCatalog";
+import {
+  generateAiWordBank,
+  type AiWordBankSection,
+} from "../../services/aiApi";
 
 const categories = [
   { value: "nouns", label: "Nouns" },
@@ -76,6 +80,12 @@ const WordBanksPanel = () => {
   const [expandedBankId, setExpandedBankId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiStatus, setAiStatus] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [bankToast, setBankToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
 
   const [title, setTitle] = useState("");
   const [level, setLevel] =
@@ -121,6 +131,14 @@ const WordBanksPanel = () => {
     };
 
     void loadBanks();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -215,6 +233,80 @@ const WordBanksPanel = () => {
     }
   };
 
+  const showToast = (message: string) => {
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    setBankToast(message);
+    toastTimerRef.current = window.setTimeout(() => {
+      setBankToast(null);
+      toastTimerRef.current = null;
+    }, 3200);
+  };
+
+  const normaliseHeadingKey = (value: string) =>
+    value.toLowerCase().replace(/\s+/g, "").replace(/-/g, "");
+
+  const fillFromSections = (sections: AiWordBankSection[]) => {
+    const sectionMap = new Map(
+      sections.map((section) => [
+        normaliseHeadingKey(section.heading),
+        section.items,
+      ]),
+    );
+
+    if (bankMode === "mode1") {
+      setModeOneInputs({
+        who: (sectionMap.get("who") ?? []).join("\n"),
+        doing: (sectionMap.get("doing") ?? []).join("\n"),
+        what: (sectionMap.get("what") ?? []).join("\n"),
+        where: (sectionMap.get("where") ?? []).join("\n"),
+        when: (sectionMap.get("when") ?? []).join("\n"),
+      });
+      return;
+    }
+
+    setModeTwoInputs((prev) => ({
+      ...prev,
+      nouns: (sectionMap.get("nouns") ?? []).join("\n"),
+      verbs: (sectionMap.get("verbs") ?? []).join("\n"),
+      adjectives: (sectionMap.get("adjectives") ?? []).join("\n"),
+      adverbials: (sectionMap.get("adverbials") ?? []).join("\n"),
+      connectives: (sectionMap.get("connectives") ?? []).join("\n"),
+      starters: (sectionMap.get("sentencestarters") ??
+        sectionMap.get("starters") ??
+        []).join("\n"),
+    }));
+  };
+
+  const handleGenerateAi = async () => {
+    if (!aiPrompt.trim()) {
+      setAiError("Add a short prompt so the AI knows what to generate.");
+      return;
+    }
+    try {
+      setIsGenerating(true);
+      setAiError(null);
+      setAiStatus(null);
+      const response = await generateAiWordBank({
+        mode: bankMode,
+        prompt: aiPrompt.trim(),
+        title: title.trim() || undefined,
+        subjectLink: subjectLinkInput.trim() || undefined,
+      });
+      fillFromSections(response.sections);
+      setAiStatus("Draft generated. Please review before saving.");
+    } catch (error) {
+      console.error(error);
+      setAiError(
+        error instanceof Error ? error.message : "Unable to generate word bank.",
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (!title.trim()) {
@@ -288,6 +380,7 @@ const WordBanksPanel = () => {
             where: "",
             when: "",
           });
+          showToast("Custom word bank created.");
         })
         .catch((error) => {
           console.error(error);
@@ -340,6 +433,7 @@ const WordBanksPanel = () => {
             return acc;
           }, {}),
         );
+        showToast("Custom word bank created.");
       })
       .catch((error) => {
         console.error(error);
@@ -529,6 +623,20 @@ const WordBanksPanel = () => {
               className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
             />
           </label>
+          <label className="md:col-span-2 text-sm font-medium text-slate-600">
+            AI prompt (optional)
+            <textarea
+              value={aiPrompt}
+              onChange={(event) => setAiPrompt(event.target.value)}
+              rows={2}
+              placeholder="e.g. Create a Y3 word bank about habitats for a non-narrative report."
+              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+            />
+            <p className="mt-1 text-xs font-normal text-slate-500">
+              This will generate a draft using the current bank type. Review
+              before saving.
+            </p>
+          </label>
           {bankMode === "mode1" ? (
             <div className="md:col-span-2 grid gap-3 md:grid-cols-2">
               {(
@@ -587,15 +695,29 @@ const WordBanksPanel = () => {
               ))}
             </div>
           )}
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={handleGenerateAi}
+              className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isGenerating}
+            >
+              {isGenerating ? "Generating..." : "Generate with AI"}
+            </button>
             <button
               type="submit"
-              className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
             >
               Save word bank
             </button>
           </div>
         </form>
+        {aiStatus ? (
+          <p className="mt-3 text-sm text-emerald-600">{aiStatus}</p>
+        ) : null}
+        {aiError ? (
+          <p className="mt-3 text-sm text-rose-600">{aiError}</p>
+        ) : null}
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -725,6 +847,13 @@ const WordBanksPanel = () => {
             </div>
           );
         })()
+      ) : null}
+      {bankToast ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-lg">
+            {bankToast}
+          </div>
+        </div>
       ) : null}
     </div>
   );
