@@ -19,7 +19,7 @@ const PupilWorkspace = () => {
 
   if (!session) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-slate-600">
+      <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-muted-surface)] px-6 py-10 text-center text-[color:var(--app-text-muted)]">
         <PupilLoginPanel />
       </div>
     );
@@ -27,8 +27,8 @@ const PupilWorkspace = () => {
 
   if (role && role !== "pupil" && role !== "admin" && role !== "teacher") {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-slate-600">
-        <p className="text-sm text-slate-600">
+      <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-muted-surface)] px-6 py-10 text-center text-[color:var(--app-text-muted)]">
+        <p className="text-sm text-[color:var(--app-text-muted)]">
           This area is for pupil accounts. Please sign in with a pupil login.
         </p>
         {supabase ? (

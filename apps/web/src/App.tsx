@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import PupilWorkspace from "./pages/PupilWorkspace";
 import TeacherConsole from "./pages/TeacherConsole";
+import LearnMore from "./pages/LearnMore";
 import ShellLayout from "./components/ShellLayout";
 import { GlobalMenuProvider } from "./components/GlobalMenu";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -14,6 +15,7 @@ const App = () => {
         <ShellLayout>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/learn-more" element={<LearnMore />} />
             <Route path="/pupil/*" element={<PupilWorkspace />} />
             <Route path="/teacher/*" element={<TeacherConsole />} />
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -20,6 +20,10 @@
   --app-control-text: #1f2a37;
   --app-accent-bg: #1f2a37;
   --app-accent-text: #ffffff;
+  --brand-navy: #003054;
+  --brand-lime: #7ed857;
+  --brand-navy-rgb: 0 48 84;
+  --brand-lime-rgb: 126 216 87;
   --sem-who-chip-bg: rgba(242, 140, 40, 0.1);
   --sem-who-chip-hover-bg: rgba(242, 140, 40, 0.18);
   --sem-who-chip-selected-bg: #f28c28;
@@ -104,6 +108,10 @@ html[data-workspace-theme="dyslexia"] {
   --app-control-text: #1d3557;
   --app-accent-bg: #1d3557;
   --app-accent-text: #ffffff;
+  --brand-navy: #1d3557;
+  --brand-lime: #8bda63;
+  --brand-navy-rgb: 29 53 87;
+  --brand-lime-rgb: 139 218 99;
   --sem-who-chip-bg: rgba(235, 151, 64, 0.16);
   --sem-who-chip-hover-bg: rgba(235, 151, 64, 0.24);
   --sem-who-chip-selected-bg: #eb9740;
@@ -188,6 +196,10 @@ html[data-workspace-theme="high-contrast"] {
   --app-control-text: #000000;
   --app-accent-bg: #000000;
   --app-accent-text: #ffffff;
+  --brand-navy: #000000;
+  --brand-lime: #f4ff45;
+  --brand-navy-rgb: 0 0 0;
+  --brand-lime-rgb: 244 255 69;
   --sem-who-chip-bg: rgba(242, 140, 40, 0.25);
   --sem-who-chip-hover-bg: rgba(242, 140, 40, 0.4);
   --sem-who-chip-selected-bg: #f28c28;
@@ -272,6 +284,10 @@ html[data-workspace-theme="dark"] {
   --app-control-text: #e2e8f0;
   --app-accent-bg: #2563eb;
   --app-accent-text: #f8fafc;
+  --brand-navy: #cbd5f5;
+  --brand-lime: #9ae66f;
+  --brand-navy-rgb: 203 213 245;
+  --brand-lime-rgb: 154 230 111;
   --sem-who-chip-bg: rgba(242, 140, 40, 0.38);
   --sem-who-chip-hover-bg: rgba(242, 140, 40, 0.48);
   --sem-who-chip-selected-bg: #f1a24f;
@@ -608,6 +624,38 @@ body {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.wt-splash {
+  background:
+    radial-gradient(circle at top left, rgba(var(--brand-lime-rgb), 0.16), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(var(--brand-navy-rgb), 0.14), transparent 55%),
+    var(--app-surface);
+  border: 1px solid var(--app-border);
+  color: var(--app-text-primary);
+}
+
+.wt-splash-card {
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
+}
+
+.wt-button-primary {
+  background-color: var(--brand-navy);
+  color: #ffffff;
+}
+
+.wt-button-secondary {
+  background-color: var(--brand-lime);
+  color: var(--app-text-primary);
+}
+
+html[data-workspace-theme="dark"] .wt-button-primary {
+  color: #0f172a;
+}
+
+html[data-workspace-theme="dark"] .wt-button-secondary {
+  color: #0f172a;
 }
 
 .global-menu-overlay {

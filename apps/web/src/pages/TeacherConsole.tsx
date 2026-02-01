@@ -106,8 +106,10 @@ const TeacherConsole = () => {
     return (
       <div className="space-y-6">
         <header>
-          <h1 className="text-2xl font-bold text-slate-900">Teacher Console</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <h1 className="text-2xl font-bold text-[color:var(--app-text-primary)]">
+            Teacher Console
+          </h1>
+          <p className="mt-1 text-sm text-[color:var(--app-text-muted)]">
             Sign in with Google to access classes, assignments, and shared files.
           </p>
         </header>

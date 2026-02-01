@@ -84,7 +84,7 @@ const PupilLoginPanel = () => {
 
   if (sessionLoading) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+      <div className="rounded-2xl border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-6 text-sm text-[color:var(--app-text-muted)] shadow-sm">
         Loading login...
       </div>
     );
@@ -92,15 +92,15 @@ const PupilLoginPanel = () => {
 
   if (session) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-slate-900">Pupil login</h2>
-        <p className="mt-2 text-sm text-slate-600">
+      <div className="rounded-2xl border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-6 shadow-sm">
+        <h2 className="text-xl font-semibold text-[color:var(--app-text-primary)]">Pupil login</h2>
+        <p className="mt-2 text-sm text-[color:var(--app-text-muted)]">
           Signed in as {user?.email ?? "pupil"}.
         </p>
         <button
           type="button"
           onClick={handleSignOut}
-          className="mt-4 rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          className="mt-4 rounded-md border border-[color:var(--app-border)] px-3 py-2 text-sm font-semibold text-[color:var(--app-text-muted)] transition hover:bg-[color:var(--app-control-hover-bg)]"
         >
           Sign out
         </button>
@@ -109,46 +109,46 @@ const PupilLoginPanel = () => {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-slate-900">Pupil login</h2>
-      <p className="mt-2 text-sm text-slate-600">
+    <div className="rounded-2xl border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-6 shadow-sm">
+      <h2 className="text-xl font-semibold text-[color:var(--app-text-primary)]">Pupil login</h2>
+      <p className="mt-2 text-sm text-[color:var(--app-text-muted)]">
         Sign in with Google or use your class username and password.
       </p>
       <div className="mt-4 flex flex-wrap gap-4">
         <button
           type="button"
           onClick={handleGoogleSignIn}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+          className="wt-button-primary rounded-md px-4 py-2 text-sm font-semibold transition hover:opacity-90"
         >
           Sign in with Google
         </button>
       </div>
-      <div className="mt-6 border-t border-slate-200 pt-4">
+      <div className="mt-6 border-t border-[color:var(--app-border)] pt-4">
         <form onSubmit={handlePasswordSignIn} className="grid gap-3">
-          <label className="text-xs font-medium text-slate-600">
+          <label className="text-xs font-medium text-[color:var(--app-text-muted)]">
             Username
             <input
               type="text"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               placeholder="e.g. pupil.d"
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+              className="mt-1 w-full rounded-md border border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-sm text-[color:var(--app-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--app-control-border)]"
             />
           </label>
-          <label className="text-xs font-medium text-slate-600">
+          <label className="text-xs font-medium text-[color:var(--app-text-muted)]">
             Password
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Enter your password"
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+              className="mt-1 w-full rounded-md border border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-sm text-[color:var(--app-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--app-control-border)]"
             />
           </label>
           <button
             type="submit"
             disabled={loading}
-            className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+            className="wt-button-secondary rounded-md px-4 py-2 text-sm font-semibold transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>

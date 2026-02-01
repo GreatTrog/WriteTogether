@@ -1,83 +1,46 @@
 import { Link } from "react-router-dom";
+import logoSquare from "../assets/logo_square.png";
 
 // Overview cards give stakeholders a quick tour of the MVP scope.
 const LandingPage = () => {
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-extrabold text-slate-900">
-        WriteTogether Phase 1 MVP
-      </h1>
-      <p className="text-slate-600">
-        This workspace will grow into the progressive writing experience for
-        pupils and the management console for teachers. Use the navigation to
-        explore the early scaffolding for pupil modes and teacher workflows.
-      </p>
-      <section className="grid gap-4 md:grid-cols-3">
-        <Link
-          to="/pupil/mode-one"
-          className="group flex h-full flex-col justify-between rounded-2xl border border-orange-200 bg-white p-6 text-left shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:border-orange-300 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
-        >
-          <div>
-            <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-orange-600">
-              Pupil mode 1
-            </span>
-            <h2 className="mt-4 text-xl font-semibold text-orange-900">
-              Colourful Semantics
-            </h2>
-            <p className="mt-2 text-sm text-orange-800">
-              Build sentences step-by-step with colour cues and sentence starters to guide ideas.
-            </p>
+    <div className="space-y-10">
+      <section
+        className="wt-splash relative overflow-hidden rounded-3xl px-6 py-12 shadow-sm"
+      >
+        <div className="grid justify-items-center gap-10 text-center lg:grid-cols-[220px_1fr] lg:items-center lg:text-left">
+          <div className="wt-splash-card mx-auto flex w-full max-w-[220px] justify-center rounded-2xl p-4">
+            <img src={logoSquare} alt="WriteTogether logo" className="h-40 w-40" />
           </div>
-          <span className="mt-6 inline-flex items-center text-sm font-semibold text-orange-700 transition group-hover:text-orange-800">
-            Start Mode 1
-            <svg className="ml-2 h-4 w-4" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5.5 3.5L10 8l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-        </Link>
-        <Link
-          to="/pupil/mode-two"
-          className="group flex h-full flex-col justify-between rounded-2xl border border-sky-200 bg-white p-6 text-left shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:border-sky-300 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
-        >
-          <div>
-            <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-600">
-              Pupil mode 2
-            </span>
-            <h2 className="mt-4 text-xl font-semibold text-sky-900">
-              Click-to-Compose
-            </h2>
-            <p className="mt-2 text-sm text-sky-800">
-              Craft paragraphs by selecting words and phrases, with live previews and export tools.
-            </p>
+          <div className="space-y-4">
+            <h1 className="text-3xl font-extrabold text-[color:var(--app-text-primary)] sm:text-4xl">
+              Welcome to WriteTogether!
+            </h1>
+            <div className="space-y-3 text-base text-[color:var(--app-text-muted)]">
+              <p>WriteTogether is a special writing tool for the classroom.</p>
+              <p>
+                You can write, record your voice, and hear what you’ve written out loud.
+              </p>
+              <p>Let’s write together and have fun!</p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-3 lg:justify-start">
+              <Link
+                to="/pupil"
+                className="wt-button-primary inline-flex items-center justify-center rounded-full px-6 py-2.5 text-sm font-semibold shadow-sm transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                Login
+              </Link>
+              <Link
+                to="/learn-more"
+                className="wt-button-secondary inline-flex items-center justify-center rounded-full px-6 py-2.5 text-sm font-semibold shadow-sm transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                Learn More
+              </Link>
+            </div>
           </div>
-          <span className="mt-6 inline-flex items-center text-sm font-semibold text-sky-700 transition group-hover:text-sky-800">
-            Start Mode 2
-            <svg className="ml-2 h-4 w-4" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5.5 3.5L10 8l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-        </Link>
-        <Link
-          to="/teacher"
-          className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
-        >
-          <div>
-            <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-              Teacher console
-            </span>
-            <h2 className="mt-4 text-xl font-semibold text-slate-900">Teacher Console</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Manage classes, assignments, word banks, and review analytics to support evidence-informed teaching.
-            </p>
-          </div>
-          <span className="mt-6 inline-flex items-center text-sm font-semibold text-slate-700 transition group-hover:text-slate-900">
-            Enter teacher console
-            <svg className="ml-2 h-4 w-4" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5.5 3.5L10 8l-4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-        </Link>
+        </div>
       </section>
+
     </div>
   );
 };
