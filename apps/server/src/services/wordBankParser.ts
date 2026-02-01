@@ -57,6 +57,15 @@ export const parseWordBankText = (input: string): ParsedWordBank => {
 
   const metaLines = metaBlock.slice(1);
   const meta: Partial<WordBankMeta> = {};
+  const stringMetaKeys = [
+    "year",
+    "text_type",
+    "sub_type",
+    "topic",
+    "reading_age",
+    "author",
+    "version",
+  ] as const;
   metaLines.forEach((line) => {
     if (!line) {
       return;
@@ -77,7 +86,9 @@ export const parseWordBankText = (input: string): ParsedWordBank => {
       }
       return;
     }
-    meta[key as keyof WordBankMeta] = value;
+    if (stringMetaKeys.includes(key as (typeof stringMetaKeys)[number])) {
+      meta[key as (typeof stringMetaKeys)[number]] = value;
+    }
   });
 
   if (!meta.year || !meta.text_type || !meta.sub_type) {
