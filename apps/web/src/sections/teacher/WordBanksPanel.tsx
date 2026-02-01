@@ -71,11 +71,11 @@ const WordBanksPanel = () => {
   const [subjectLinks, setSubjectLinks] = useState<TeacherSubjectLink[]>([]);
   const [subjectLinkInput, setSubjectLinkInput] = useState("");
   const [catalogSubjects, setCatalogSubjects] = useState<string[]>([]);
-  const [mergeStatus, setMergeStatus] = useState<string | null>(null);
-  const [isMerging, setIsMerging] = useState(false);
-  const [deleteLegacyAfterMerge, setDeleteLegacyAfterMerge] = useState(false);
   const [bankFilter, setBankFilter] = useState<"all" | "mine">("all");
   const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
+  const [expandedBankId, setExpandedBankId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [title, setTitle] = useState("");
   const [level, setLevel] =
@@ -183,115 +183,35 @@ const WordBanksPanel = () => {
       .map((entry) => entry.topic);
   }, [subjectLinkInput, subjectLinks]);
 
-  const mergeLegacyBanks = async () => {
-    setIsMerging(true);
-    setMergeStatus(null);
+  const handleToggleExpand = (bankId: string) => {
+    setExpandedBankId((prev) => (prev === bankId ? null : bankId));
+  };
+
+  const confirmDeleteBank = (bankId: string) => {
+    setPendingDeleteId(bankId);
+  };
+
+  const cancelDeleteBank = () => {
+    setPendingDeleteId(null);
+  };
+
+  const handleDeleteBank = async () => {
+    if (!pendingDeleteId) {
+      return;
+    }
     try {
-      const labelByCategory = new Map(
-        categories.map((category) => [category.value, category.label]),
+      setIsDeleting(true);
+      setBankError(null);
+      await deleteTeacherWordBank(pendingDeleteId);
+      setTeacherBanks((prev) =>
+        prev.filter((bank) => bank.id !== pendingDeleteId),
       );
-      const legacyCandidates = teacherBanks.filter((bank) => {
-        const label = labelByCategory.get(bank.category);
-        if (!label) {
-          return false;
-        }
-        const suffix = ` - ${label}`;
-        return bank.title.toLowerCase().endsWith(suffix.toLowerCase());
-      });
-
-      const grouped = new Map<
-        string,
-        { baseTitle: string; topic: string; level: TeacherWordBank["level"]; banks: TeacherWordBank[] }
-      >();
-
-      legacyCandidates.forEach((bank) => {
-        const label = labelByCategory.get(bank.category);
-        if (!label) {
-          return;
-        }
-        const suffix = ` - ${label}`;
-        const baseTitle = bank.title.slice(0, -suffix.length).trim();
-        const key = `${baseTitle}::${bank.topic}::${bank.level}`;
-        if (!grouped.has(key)) {
-          grouped.set(key, { baseTitle, topic: bank.topic, level: bank.level, banks: [] });
-        }
-        grouped.get(key)!.banks.push(bank);
-      });
-
-      const createdBanks: TeacherWordBank[] = [];
-      const deletedBankIds: string[] = [];
-
-      for (const group of grouped.values()) {
-        if (group.banks.length < 2) {
-          continue;
-        }
-        const alreadyExists = teacherBanks.some(
-          (bank) =>
-            bank.category === "mixed" &&
-            bank.title === group.baseTitle &&
-            bank.topic === group.topic &&
-            bank.level === group.level,
-        );
-        if (alreadyExists) {
-          continue;
-        }
-        const subjectTag = group.banks
-          .flatMap((bank) => bank.tags ?? [])
-          .find((tag) => tag.startsWith("subject:"));
-
-        const items = group.banks.flatMap((bank) =>
-          bank.items.map((item) => ({
-            text: item.text,
-            tags: Array.from(
-              new Set([...(item.tags ?? []), `grammar:${bank.category}`]),
-            ),
-            slot: item.slot,
-          })),
-        );
-
-        if (items.length === 0) {
-          continue;
-        }
-
-        const created = await createTeacherWordBank({
-          title: group.baseTitle,
-          description: group.banks.find((bank) => bank.description)?.description,
-          level: group.level,
-          tags: [subjectTag, "mode:2"].filter(Boolean) as string[],
-          colourMap: undefined,
-          category: "mixed",
-          topic: group.topic,
-          items,
-        });
-        createdBanks.push(created);
-        if (deleteLegacyAfterMerge) {
-          for (const bank of group.banks) {
-            await deleteTeacherWordBank(bank.id);
-            deletedBankIds.push(bank.id);
-          }
-        }
-      }
-
-      if (createdBanks.length > 0) {
-        setTeacherBanks((prev) => {
-          const withoutDeleted = deleteLegacyAfterMerge
-            ? prev.filter((bank) => !deletedBankIds.includes(bank.id))
-            : prev;
-          return [...createdBanks, ...withoutDeleted];
-        });
-        const deletedCount = deleteLegacyAfterMerge ? deletedBankIds.length : 0;
-        setMergeStatus(
-          `Created ${createdBanks.length} merged bank(s).` +
-            (deletedCount > 0 ? ` Deleted ${deletedCount} legacy bank(s).` : ""),
-        );
-      } else {
-        setMergeStatus("No legacy split banks found to merge.");
-      }
+      setPendingDeleteId(null);
     } catch (error) {
       console.error(error);
-      setMergeStatus("Unable to merge legacy banks.");
+      setBankError("Unable to delete word bank.");
     } finally {
-      setIsMerging(false);
+      setIsDeleting(false);
     }
   };
 
@@ -434,24 +354,73 @@ const WordBanksPanel = () => {
     return teacherBanks;
   }, [bankFilter, teacherBanks, teacherProfileId]);
 
-const customGroups = useMemo(() => {
-    const baseGroups = categories.map((entry) => ({
-      ...entry,
-      banks: filteredTeacherBanks.filter((bank) => bank.category === entry.value),
-    }));
-    const mixedBanks = filteredTeacherBanks.filter((bank) => bank.category === "mixed");
-    if (mixedBanks.length === 0) {
-      return baseGroups;
+  const displayBanks = useMemo(
+    () =>
+      filteredTeacherBanks.filter(
+        (bank) => bank.category === "mixed" || bank.category === "nouns",
+      ),
+    [filteredTeacherBanks],
+  );
+
+  const bankSectionLabels = useMemo(
+    () => new Map(categories.map((category) => [category.value, category.label])),
+    [],
+  );
+
+  const buildBankSections = (bank: TeacherWordBank) => {
+    if (bank.category === "mixed") {
+      const grouped = new Map<string, string[]>();
+      bank.items.forEach((item) => {
+        const grammarTag = item.tags?.find((tag) => tag.startsWith("grammar:"));
+        const category = grammarTag?.split(":")[1] ?? "other";
+        if (!grouped.has(category)) {
+          grouped.set(category, []);
+        }
+        grouped.get(category)!.push(item.text);
+      });
+      const ordered = Array.from(grouped.entries()).sort((a, b) => {
+        const labelA = bankSectionLabels.get(a[0]) ?? a[0];
+        const labelB = bankSectionLabels.get(b[0]) ?? b[0];
+        return labelA.localeCompare(labelB);
+      });
+      return ordered.map(([category, items]) => ({
+        label: bankSectionLabels.get(category) ?? category,
+        items,
+      }));
     }
+
+    if (bank.category === "nouns") {
+      const slotOrder = ["who", "doing", "what", "where", "when"];
+      const grouped = new Map<string, string[]>();
+      bank.items.forEach((item) => {
+        const slot = item.slot ?? "other";
+        if (!grouped.has(slot)) {
+          grouped.set(slot, []);
+        }
+        grouped.get(slot)!.push(item.text);
+      });
+      const ordered = slotOrder
+        .filter((slot) => grouped.has(slot))
+        .map((slot) => ({
+          label: slot,
+          items: grouped.get(slot)!,
+        }));
+      const remaining = Array.from(grouped.entries())
+        .filter(([slot]) => !slotOrder.includes(slot))
+        .map(([slot, items]) => ({
+          label: slot,
+          items,
+        }));
+      return [...ordered, ...remaining];
+    }
+
     return [
       {
-        value: "mixed",
-        label: "Mixed banks",
-        banks: mixedBanks,
+        label: bank.category,
+        items: bank.items.map((item) => item.text),
       },
-      ...baseGroups,
     ];
-  }, [filteredTeacherBanks]);
+  };
 
   return (
     <div className="space-y-6">
@@ -634,24 +603,7 @@ const customGroups = useMemo(() => {
           <h2 className="text-lg font-semibold text-slate-900">
             Custom bank overview
           </h2>
-          <button
-            type="button"
-            onClick={mergeLegacyBanks}
-            disabled={isMerging}
-            className="ml-auto rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isMerging ? "Merging..." : "Merge legacy banks"}
-          </button>
-          <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
-            <input
-              type="checkbox"
-              checked={deleteLegacyAfterMerge}
-              onChange={(event) => setDeleteLegacyAfterMerge(event.target.checked)}
-              className="h-4 w-4 accent-slate-900"
-            />
-            Delete legacy banks after merge
-          </label>
-          <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+          <label className="ml-auto flex items-center gap-2 text-xs font-medium text-slate-600">
             Show
             <select
               value={bankFilter}
@@ -663,48 +615,117 @@ const customGroups = useMemo(() => {
             </select>
           </label>
         </div>
-        {mergeStatus ? (
-          <p className="mt-2 text-xs text-slate-500">{mergeStatus}</p>
-        ) : null}
         {bankError ? (
           <p className="mt-3 text-sm text-rose-600">{bankError}</p>
         ) : null}
         {bankLoadState === "loading" ? (
           <p className="mt-3 text-sm text-slate-600">Loading teacher banks...</p>
         ) : (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {customGroups.map((group) => (
-              <div
-                key={group.value}
-                className="rounded-md border border-slate-200 p-4"
-              >
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-slate-900">{group.label}</p>
-                  <span className="ml-auto rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                    {group.banks.length}
-                  </span>
-                </div>
-                <ul className="mt-2 space-y-2 text-sm text-slate-700">
-                  {group.banks.length === 0 ? (
-                    <li className="rounded-md bg-slate-50 px-3 py-2 text-slate-500">
-                      No custom banks yet.
-                    </li>
-                  ) : (
-                    group.banks.map((bank) => (
-                      <li key={bank.id} className="rounded-md bg-slate-50 px-3 py-2">
-                        <p className="font-medium text-slate-800">{bank.title}</p>
-                        <p className="text-xs uppercase tracking-wide text-slate-500">
-                          {bank.topic} - {bank.items.length} words
-                        </p>
-                      </li>
-                    ))
-                  )}
-                </ul>
+          <div className="mt-4 space-y-3">
+            {displayBanks.length === 0 ? (
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                No custom banks yet.
               </div>
-            ))}
+            ) : (
+              displayBanks.map((bank) => {
+                const isExpanded = expandedBankId === bank.id;
+                const sections = buildBankSections(bank);
+                return (
+                  <div
+                    key={bank.id}
+                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleExpand(bank.id)}
+                        aria-expanded={isExpanded}
+                        className="flex flex-1 flex-col text-left"
+                      >
+                        <span className="font-semibold text-slate-800">
+                          {bank.title}
+                        </span>
+                        <span className="mt-1 text-xs uppercase tracking-wide text-slate-500">
+                          {bank.topic} - {bank.items.length} words
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => confirmDeleteBank(bank.id)}
+                        className="rounded-md border border-rose-200 bg-white px-2 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    {isExpanded ? (
+                      <div className="mt-3 space-y-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                        {sections.map((section) => (
+                          <div key={section.label}>
+                            <p className="text-[0.7rem] font-semibold uppercase tracking-wide">
+                              {section.label}
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-2">
+                              {section.items.map((item) => (
+                                <span
+                                  key={`${section.label}-${item}`}
+                                  className="rounded-full border border-slate-200 px-2 py-0.5"
+                                >
+                                  {item}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
       </section>
+      {pendingDeleteId ? (
+        (() => {
+          const pendingTitle =
+            teacherBanks.find((bank) => bank.id === pendingDeleteId)?.title ??
+            "this word bank";
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+              <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Delete word bank
+                </h3>
+                <p className="mt-2 text-sm text-slate-600">
+                  Are you sure you want to delete{" "}
+                  <span className="font-semibold text-slate-900">
+                    {pendingTitle}
+                  </span>
+                  ? This cannot be undone.
+                </p>
+                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelDeleteBank}
+                    className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteBank}
+                    className="rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? "Deleting..." : "Delete word bank"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()
+      ) : null}
     </div>
   );
 };
