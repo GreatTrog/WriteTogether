@@ -82,7 +82,7 @@ const TeacherConsole = () => {
       { path: "classes", label: "Classes" },
       { path: "pupils", label: "Pupils" },
       { path: "assignments", label: "Assignments" },
-      { path: "banks", label: "Word Banks" },
+      { path: "banks", label: "Custom Word Banks" },
       { path: "shared-files", label: "Shared Files" },
       { path: "analytics", label: "Analytics" },
       ...(isAdmin ? [{ path: "admin", label: "Admin Users" }] : []),

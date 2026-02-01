@@ -28,6 +28,76 @@ export type TeacherPupilRow = TeacherPupil & {
   class_phase: TeacherClass["phase"] | null;
 };
 
+export type TeacherAssignmentRow = {
+  id: string;
+  title: string;
+  class_id: string;
+  mode_lock: "mode1" | "mode2" | null;
+  word_bank_ids: string[] | null;
+  template_id: string | null;
+  due_at: string | null;
+  settings: {
+    wordLimit?: number;
+    enableTTS?: boolean;
+    slotsEnabled?: Array<"who" | "doing" | "what" | "where" | "when">;
+  } | null;
+  status: "draft" | "published" | null;
+  catalog_word_banks: Record<string, unknown> | null;
+};
+
+export type TeacherAssignment = {
+  id: string;
+  title: string;
+  classId: string;
+  modeLock: "mode1" | "mode2";
+  wordBankIds: string[];
+  templateId: string | null;
+  dueAt: Date | null;
+  settings: {
+    wordLimit?: number;
+    enableTTS?: boolean;
+    slotsEnabled?: Array<"who" | "doing" | "what" | "where" | "when">;
+  };
+  status: "draft" | "published";
+  catalogWordBanks?: Record<string, unknown>;
+};
+
+export type TeacherWordBankRow = {
+  id: string;
+  owner_id: string;
+  title: string;
+  description: string | null;
+  level: "ks1" | "lks2" | "uks2";
+  tags: string[] | null;
+  colour_map: Record<string, string> | null;
+  category: string | null;
+  topic: string | null;
+  word_bank_items: Array<{
+    id: string;
+    text: string;
+    slot: "who" | "doing" | "what" | "where" | "when" | null;
+    tags: string[] | null;
+  }> | null;
+};
+
+export type TeacherWordBank = {
+  id: string;
+  ownerId: string;
+  title: string;
+  description?: string;
+  level: "ks1" | "lks2" | "uks2";
+  tags: string[];
+  colourMap?: Record<string, string>;
+  category: string;
+  topic: string;
+  items: Array<{
+    id: string;
+    text: string;
+    tags: string[];
+    slot?: "who" | "doing" | "what" | "where" | "when";
+  }>;
+};
+
 const requireSupabase = () => {
   if (!supabase) {
     throw new Error("Supabase is not configured.");
@@ -221,4 +291,171 @@ export const deletePupil = async (pupilId: string) => {
   if (error) {
     throw new Error(error.message);
   }
+};
+
+export const fetchAssignments = async (): Promise<TeacherAssignment[]> => {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("assignments")
+    .select(
+      "id,title,class_id,mode_lock,word_bank_ids,template_id,due_at,settings,status,catalog_word_banks",
+    );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    title: row.title,
+    classId: row.class_id,
+    modeLock: row.mode_lock ?? "mode2",
+    wordBankIds: row.word_bank_ids ?? [],
+    templateId: row.template_id ?? null,
+    dueAt: row.due_at ? new Date(row.due_at) : null,
+    settings: row.settings ?? {},
+    status: row.status ?? "published",
+    catalogWordBanks: row.catalog_word_banks ?? undefined,
+  })) as TeacherAssignment[];
+};
+
+export const createAssignment = async (
+  payload: Omit<TeacherAssignment, "id">,
+): Promise<TeacherAssignment> => {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("assignments")
+    .insert({
+      title: payload.title,
+      class_id: payload.classId,
+      mode_lock: payload.modeLock,
+      word_bank_ids: payload.wordBankIds,
+      template_id: payload.templateId,
+      due_at: payload.dueAt ? payload.dueAt.toISOString() : null,
+      settings: payload.settings,
+      status: payload.status,
+      catalog_word_banks: payload.catalogWordBanks ?? null,
+    })
+    .select(
+      "id,title,class_id,mode_lock,word_bank_ids,template_id,due_at,settings,status,catalog_word_banks",
+    )
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to create assignment.");
+  }
+
+  return {
+    id: data.id,
+    title: data.title,
+    classId: data.class_id,
+    modeLock: data.mode_lock ?? "mode2",
+    wordBankIds: data.word_bank_ids ?? [],
+    templateId: data.template_id ?? null,
+    dueAt: data.due_at ? new Date(data.due_at) : null,
+    settings: data.settings ?? {},
+    status: data.status ?? "published",
+    catalogWordBanks: data.catalog_word_banks ?? undefined,
+  };
+};
+
+export const fetchTeacherWordBanks = async (): Promise<TeacherWordBank[]> => {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("word_banks")
+    .select(
+      "id,owner_id,title,description,level,tags,colour_map,category,topic,word_bank_items(id,text,slot,tags)",
+    )
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    ownerId: row.owner_id,
+    title: row.title,
+    description: row.description ?? undefined,
+    level: row.level,
+    tags: row.tags ?? [],
+    colourMap: row.colour_map ?? undefined,
+    category: row.category ?? "nouns",
+    topic: row.topic ?? "General",
+    items: (row.word_bank_items ?? []).map((item) => ({
+      id: item.id,
+      text: item.text,
+      tags: item.tags ?? [],
+      slot: item.slot ?? undefined,
+    })),
+  })) as TeacherWordBank[];
+};
+
+export const createTeacherWordBank = async (
+  payload: Omit<TeacherWordBank, "id" | "ownerId" | "items"> & {
+    items: Array<{
+      text: string;
+      tags?: string[];
+      slot?: "who" | "doing" | "what" | "where" | "when";
+    }>;
+  },
+) => {
+  const client = requireSupabase();
+  const ownerId = await resolveTeacherProfileId();
+  if (!ownerId) {
+    throw new Error("Missing teacher profile.");
+  }
+
+  const { data: bank, error: bankError } = await client
+    .from("word_banks")
+    .insert({
+      owner_id: ownerId,
+      title: payload.title,
+      description: payload.description ?? null,
+      level: payload.level,
+      tags: payload.tags ?? [],
+      colour_map: payload.colourMap ?? null,
+      category: payload.category,
+      topic: payload.topic,
+    })
+    .select("id,owner_id,title,description,level,tags,colour_map,category,topic")
+    .single();
+
+  if (bankError || !bank) {
+    throw new Error(bankError?.message ?? "Unable to create word bank.");
+  }
+
+  const itemsPayload = payload.items.map((item) => ({
+    bank_id: bank.id,
+    text: item.text,
+    tags: item.tags ?? [],
+    slot: item.slot ?? null,
+  }));
+
+  const { data: items, error: itemsError } = await client
+    .from("word_bank_items")
+    .insert(itemsPayload)
+    .select("id,text,slot,tags");
+
+  if (itemsError) {
+    throw new Error(itemsError.message);
+  }
+
+  return {
+    id: bank.id,
+    ownerId: bank.owner_id,
+    title: bank.title,
+    description: bank.description ?? undefined,
+    level: bank.level,
+    tags: bank.tags ?? [],
+    colourMap: bank.colour_map ?? undefined,
+    category: bank.category ?? "nouns",
+    topic: bank.topic ?? "General",
+    items: (items ?? []).map((item) => ({
+      id: item.id,
+      text: item.text,
+      tags: item.tags ?? [],
+      slot: item.slot ?? undefined,
+    })),
+  } satisfies TeacherWordBank;
 };

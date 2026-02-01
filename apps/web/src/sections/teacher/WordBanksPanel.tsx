@@ -1,15 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useTeacherStore } from "../../store/useTeacherStore";
 import {
-  TEXT_TYPE_LABELS,
-  TEXT_TYPE_SUBTYPES,
-  TextType,
-  textTypeLabel,
-  loadWordBankCatalog,
-  type WordBankDocument,
-  type WordBankSnapshot,
-} from "../../services/wordBankCatalog";
+  createTeacherWordBank,
+  fetchTeacherWordBanks,
+  resolveTeacherProfileId,
+  type TeacherWordBank,
+} from "../../services/teacherData";
 
 const categories = [
   { value: "nouns", label: "Nouns" },
@@ -26,31 +21,15 @@ const levels = [
   { value: "uks2", label: "UKS2" },
 ] as const;
 
-const ALL = "all";
-
-const describeHeadings = (doc: WordBankSnapshot) =>
-  doc.headings
-    .map((heading) => `${heading.label} (${heading.items.length})`)
-    .join(", ");
-
-type CatalogWordBankState = WordBankSnapshot;
-
-// Catalog browser plus custom bank builder used by both modes.
+// Custom bank builder for teacher-authored banks.
 const WordBanksPanel = () => {
-  const { wordBanks, addWordBank } = useTeacherStore();
-  const navigate = useNavigate();
-
-  const [catalog, setCatalog] = useState<WordBankDocument[]>([]);
-  const [catalogState, setCatalogState] = useState<
+  const [teacherBanks, setTeacherBanks] = useState<TeacherWordBank[]>([]);
+  const [bankLoadState, setBankLoadState] = useState<
     "idle" | "loading" | "ready" | "error"
   >("idle");
-
-  const [query, setQuery] = useState("");
-  const [yearFilter, setYearFilter] = useState<string>(ALL);
-  const [textTypeFilter, setTextTypeFilter] = useState<string>(ALL);
-  const [subTypeFilter, setSubTypeFilter] = useState<string>(ALL);
-  const [subjectFilter, setSubjectFilter] = useState<string>(ALL);
-  const [readingAgeFilter, setReadingAgeFilter] = useState<string>(ALL);
+  const [bankError, setBankError] = useState<string | null>(null);
+  const [bankFilter, setBankFilter] = useState<"all" | "mine">("all");
+  const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [topic, setTopic] = useState("General");
@@ -62,118 +41,29 @@ const WordBanksPanel = () => {
   const [description, setDescription] = useState("");
 
   useEffect(() => {
-    let isMounted = true;
-    setCatalogState("loading");
-    loadWordBankCatalog()
-      .then((entries) => {
-        if (!isMounted) {
-          return;
-        }
-        setCatalog(entries);
-        setCatalogState("ready");
-      })
-      .catch((error) => {
+    const loadBanks = async () => {
+      setBankLoadState("loading");
+      setBankError(null);
+      try {
+        const [banks, profileId] = await Promise.all([
+          fetchTeacherWordBanks(),
+          resolveTeacherProfileId(),
+        ]);
+        setTeacherBanks(banks);
+        setTeacherProfileId(profileId);
+        setBankLoadState("ready");
+      } catch (error) {
         console.error(error);
-        if (!isMounted) {
-          return;
-        }
-        setCatalog([]);
-        setCatalogState("error");
-      });
-    return () => {
-      isMounted = false;
+        setTeacherBanks([]);
+        setBankLoadState("error");
+        setBankError("Unable to load teacher word banks.");
+      }
     };
+
+    void loadBanks();
   }, []);
 
-  const unique = (values: string[]) =>
-    Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
-
-  const catalogYears = useMemo(
-    () => unique(catalog.map((doc) => doc.meta.year)),
-    [catalog],
-  );
-  const catalogSubjectLinks = useMemo(
-    () => unique(catalog.flatMap((doc) => doc.meta.subject_links ?? [])),
-    [catalog],
-  );
-  const catalogReadingAges = useMemo(
-    () =>
-      unique(
-        catalog
-          .map((doc) => doc.meta.reading_age)
-          .filter((value): value is string => Boolean(value)),
-      ),
-    [catalog],
-  );
-  const catalogSubTypes = useMemo(
-    () => unique(catalog.map((doc) => doc.meta.sub_type)),
-    [catalog],
-  );
-
-  const availableSubTypes = useMemo(() => {
-    // When a text type is chosen, limit the subtype filter to relevant options.
-    if (textTypeFilter === ALL) {
-      return catalogSubTypes.length > 0
-        ? catalogSubTypes
-        : Object.values(TEXT_TYPE_SUBTYPES).flat();
-    }
-    return TEXT_TYPE_SUBTYPES[textTypeFilter as TextType];
-  }, [catalogSubTypes, textTypeFilter]);
-
-  const filteredCatalog = useMemo(() => {
-    // Apply the faceted filters to the locally bundled word bank catalog.
-    const normalisedQuery = query.trim().toLowerCase();
-
-    return catalog.filter((doc) => {
-      if (yearFilter !== ALL && doc.meta.year !== yearFilter) {
-        return false;
-      }
-      if (
-        textTypeFilter !== ALL &&
-        doc.meta.text_type !== (textTypeFilter as TextType)
-      ) {
-        return false;
-      }
-      if (subTypeFilter !== ALL && doc.meta.sub_type !== subTypeFilter) {
-        return false;
-      }
-      if (
-        subjectFilter !== ALL &&
-        !(doc.meta.subject_links ?? []).includes(subjectFilter)
-      ) {
-        return false;
-      }
-      if (
-        readingAgeFilter !== ALL &&
-        doc.meta.reading_age !== readingAgeFilter
-      ) {
-        return false;
-      }
-      if (!normalisedQuery) {
-        return true;
-      }
-      return doc.searchText.includes(normalisedQuery);
-    });
-  }, [
-    query,
-    readingAgeFilter,
-    subjectFilter,
-    subTypeFilter,
-    textTypeFilter,
-    yearFilter,
-    catalog,
-  ]);
-
-  const hasFiltersApplied =
-    query.trim().length > 0 ||
-    yearFilter !== ALL ||
-    textTypeFilter !== ALL ||
-    subTypeFilter !== ALL ||
-    subjectFilter !== ALL ||
-    readingAgeFilter !== ALL;
-
   const handleSubmit = (event: FormEvent) => {
-    // Capture quick teacher-authored lists and push them into the shared store.
     event.preventDefault();
     if (!title.trim() || !items.trim()) {
       return;
@@ -183,7 +73,7 @@ const WordBanksPanel = () => {
       .map((line) => line.trim())
       .filter(Boolean);
 
-    addWordBank({
+    const nextPayload = {
       title: title.trim(),
       description: description.trim() || undefined,
       level: level as "ks1" | "lks2" | "uks2",
@@ -191,297 +81,42 @@ const WordBanksPanel = () => {
       colourMap: undefined,
       category,
       topic,
-      items: itemLines.map((text, index) => ({
-        id: `${title.toLowerCase().replace(/\s+/g, "-")}-${index}`,
+      items: itemLines.map((text) => ({
         text,
         tags: [],
       })),
-    });
+    };
 
-    setTitle("");
-    setTopic("General");
-    setItems("");
-    setDescription("");
+    createTeacherWordBank(nextPayload)
+      .then((created) => {
+        setTeacherBanks((prev) => [created, ...prev]);
+        setTitle("");
+        setTopic("General");
+        setItems("");
+        setDescription("");
+      })
+      .catch((error) => {
+        console.error(error);
+        setBankError("Unable to save word bank.");
+      });
   };
+
+  const filteredTeacherBanks = useMemo(() => {
+    if (bankFilter === "mine" && teacherProfileId) {
+      return teacherBanks.filter((bank) => bank.ownerId === teacherProfileId);
+    }
+    return teacherBanks;
+  }, [bankFilter, teacherBanks, teacherProfileId]);
 
   const customGroups = useMemo(() => {
-    // Group saved banks by category so the overview mirrors the library tabs.
     return categories.map((entry) => ({
       ...entry,
-      banks: wordBanks.filter((bank) => bank.category === entry.value),
+      banks: filteredTeacherBanks.filter((bank) => bank.category === entry.value),
     }));
-  }, [wordBanks]);
-
-  const resetFilters = () => {
-    setQuery("");
-    setYearFilter(ALL);
-    setTextTypeFilter(ALL);
-    setSubTypeFilter(ALL);
-    setSubjectFilter(ALL);
-    setReadingAgeFilter(ALL);
-  };
+  }, [filteredTeacherBanks]);
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Word bank library search
-            </h2>
-            <p className="text-sm text-slate-500">
-              Filter by year, text type, or keywords to locate curated banks.
-            </p>
-          </div>
-          <span className="ml-auto inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-            {catalogState === "loading"
-              ? "Loading..."
-              : `${filteredCatalog.length} result${filteredCatalog.length === 1 ? "" : "s"}`}
-          </span>
-        </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          <label className="text-sm font-medium text-slate-600">
-            Keyword search
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="kennings, forest, Science"
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
-            />
-          </label>
-
-          <label className="text-sm font-medium text-slate-600">
-            Year group
-            <select
-              value={yearFilter}
-              onChange={(event) => setYearFilter(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
-            >
-              <option value={ALL}>All years</option>
-              {catalogYears.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm font-medium text-slate-600">
-            Text type
-            <select
-              value={textTypeFilter}
-              onChange={(event) => {
-                const value = event.target.value;
-                setTextTypeFilter(value);
-                if (value === ALL) {
-                  setSubTypeFilter(ALL);
-                } else if (
-                  !TEXT_TYPE_SUBTYPES[value as TextType].includes(subTypeFilter)
-                ) {
-                  setSubTypeFilter(ALL);
-                }
-              }}
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
-            >
-              <option value={ALL}>All text types</option>
-              {TEXT_TYPE_LABELS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm font-medium text-slate-600">
-            Sub-type
-            <select
-              value={subTypeFilter}
-              onChange={(event) => setSubTypeFilter(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
-            >
-              <option value={ALL}>All sub-types</option>
-              {availableSubTypes.map((subType) => (
-                <option key={subType} value={subType}>
-                  {subType.replace(/-/g, " ")}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {catalogSubjectLinks.length > 0 && (
-            <label className="text-sm font-medium text-slate-600">
-              Subject links
-              <select
-                value={subjectFilter}
-                onChange={(event) => setSubjectFilter(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
-              >
-                <option value={ALL}>All subjects</option>
-                {catalogSubjectLinks.map((subject) => (
-                  <option key={subject} value={subject}>
-                    {subject}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          {catalogReadingAges.length > 0 && (
-            <label className="text-sm font-medium text-slate-600">
-              Reading age
-              <select
-                value={readingAgeFilter}
-                onChange={(event) => setReadingAgeFilter(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
-              >
-                <option value={ALL}>All ages</option>
-                {catalogReadingAges.map((age) => (
-                  <option key={age} value={age}>
-                    {age}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <p className="text-xs text-slate-500">
-            Results are parsed from the Word Bank schema text files when this panel opens.
-          </p>
-          {hasFiltersApplied && (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="ml-auto inline-flex items-center rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
-            >
-              Reset filters
-            </button>
-          )}
-        </div>
-
-        <div className="mt-6 space-y-3">
-          {catalogState === "loading" ? (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-              Loading word bank library...
-            </div>
-          ) : catalogState === "error" ? (
-            <div className="rounded-lg border border-dashed border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-700">
-              Unable to load the word bank library right now.
-            </div>
-          ) : filteredCatalog.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-              No word banks match the current filters. Adjust your search or clear all filters.
-            </div>
-          ) : (
-            filteredCatalog.map((doc) => (
-              <details
-                key={doc.id}
-                className="group rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:border-slate-300"
-              >
-                <summary className="flex cursor-pointer flex-wrap items-start gap-3 text-left [&::-webkit-details-marker]:hidden">
-                  <div className="flex flex-1 flex-col">
-                    <p className="text-sm font-semibold text-slate-900">
-                      {doc.meta.topic ?? doc.fileName.replace(/\.txt$/, "")}
-                    </p>
-                    <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                      {doc.meta.year} - {textTypeLabel(doc.meta.text_type)} - {doc.meta.sub_type.replace(/-/g, " ")}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">{describeHeadings(doc)}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 text-xs text-slate-500">
-                    <span>File: {doc.fileName}</span>
-                    {doc.meta.keywords?.length ? (
-                      <span>
-                        Keywords: {doc.meta.keywords.slice(0, 3).join(", ")}
-                        {doc.meta.keywords.length > 3 ? "..." : ""}
-                      </span>
-                    ) : null}
-                  </div>
-                </summary>
-
-                <div className="mt-3 border-t border-slate-200 pt-3">
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="space-y-2">
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Meta
-                      </h3>
-                      <dl className="space-y-1 text-xs text-slate-600">
-                        <div className="flex gap-1">
-                          <dt className="font-medium text-slate-700">Subject links:</dt>
-                          <dd>
-                            {(doc.meta.subject_links ?? []).length
-                              ? doc.meta.subject_links.join(", ")
-                              : "--"}
-                          </dd>
-                        </div>
-                        <div className="flex gap-1">
-                          <dt className="font-medium text-slate-700">Reading age:</dt>
-                          <dd>{doc.meta.reading_age ?? "--"}</dd>
-                        </div>
-                        <div className="flex gap-1">
-                          <dt className="font-medium text-slate-700">Author:</dt>
-                          <dd>{doc.meta.author ?? "--"}</dd>
-                        </div>
-                        <div className="flex gap-1">
-                          <dt className="font-medium text-slate-700">Version:</dt>
-                          <dd>{doc.meta.version ?? "--"}</dd>
-                        </div>
-                      </dl>
-                    </div>
-                    <div className="md:col-span-2 space-y-3">
-                      {doc.headings.map((heading, headingIndex) => (
-                        <div key={`${doc.id}-${heading.label}-${headingIndex}`}>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            {heading.label}
-                          </p>
-                          <div className="mt-1 flex flex-wrap gap-2">
-                            {heading.items.map((item, itemIndex) => (
-                              <span
-                                key={`${doc.id}-${heading.label}-${itemIndex}`}
-                                className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
-                              >
-                                {item.isPhrase ? `[${item.text}]` : item.text}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3">
-                  <p className="text-xs text-slate-500">
-                    Ready to put this bank to work? Jump to the assignment
-                    builder with it pre-selected.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const payload: CatalogWordBankState = {
-                        id: doc.id,
-                        fileName: doc.fileName,
-                        meta: doc.meta,
-                        headings: doc.headings,
-                      };
-                      navigate("../assignments", {
-                        state: { catalogWordBank: payload },
-                      });
-                    }}
-                    className="inline-flex items-center rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700"
-                  >
-                    Assign this bank
-                  </button>
-                </div>
-              </details>
-            ))
-          )}
-        </div>
-      </section>
-
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">
           Add custom word bank
@@ -559,7 +194,7 @@ const WordBanksPanel = () => {
             <textarea
               value={items}
               onChange={(event) => setItems(event.target.value)}
-              placeholder="prototype&#10;blueprint&#10;feedback"
+              placeholder="prototype\nblueprint\nfeedback"
               rows={4}
               className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
               required
@@ -577,40 +212,60 @@ const WordBanksPanel = () => {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Custom bank overview
-        </h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {customGroups.map((group) => (
-            <div
-              key={group.value}
-              className="rounded-md border border-slate-200 p-4"
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Custom bank overview
+          </h2>
+          <label className="ml-auto flex items-center gap-2 text-xs font-medium text-slate-600">
+            Show
+            <select
+              value={bankFilter}
+              onChange={(event) => setBankFilter(event.target.value as "all" | "mine")}
+              className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700"
             >
-              <div className="flex items-center gap-2">
-                <p className="font-semibold text-slate-900">{group.label}</p>
-                <span className="ml-auto rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                  {group.banks.length}
-                </span>
-              </div>
-              <ul className="mt-2 space-y-2 text-sm text-slate-700">
-                {group.banks.length === 0 ? (
-                  <li className="rounded-md bg-slate-50 px-3 py-2 text-slate-500">
-                    No custom banks yet.
-                  </li>
-                ) : (
-                  group.banks.map((bank) => (
-                    <li key={bank.id} className="rounded-md bg-slate-50 px-3 py-2">
-                      <p className="font-medium text-slate-800">{bank.title}</p>
-                      <p className="text-xs uppercase tracking-wide text-slate-500">
-                        {bank.topic} - {bank.items.length} words
-                      </p>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-          ))}
+              <option value="all">All teacher banks</option>
+              <option value="mine">My banks only</option>
+            </select>
+          </label>
         </div>
+        {bankError ? (
+          <p className="mt-3 text-sm text-rose-600">{bankError}</p>
+        ) : null}
+        {bankLoadState === "loading" ? (
+          <p className="mt-3 text-sm text-slate-600">Loading teacher banks...</p>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {customGroups.map((group) => (
+              <div
+                key={group.value}
+                className="rounded-md border border-slate-200 p-4"
+              >
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-slate-900">{group.label}</p>
+                  <span className="ml-auto rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                    {group.banks.length}
+                  </span>
+                </div>
+                <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                  {group.banks.length === 0 ? (
+                    <li className="rounded-md bg-slate-50 px-3 py-2 text-slate-500">
+                      No custom banks yet.
+                    </li>
+                  ) : (
+                    group.banks.map((bank) => (
+                      <li key={bank.id} className="rounded-md bg-slate-50 px-3 py-2">
+                        <p className="font-medium text-slate-800">{bank.title}</p>
+                        <p className="text-xs uppercase tracking-wide text-slate-500">
+                          {bank.topic} - {bank.items.length} words
+                        </p>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

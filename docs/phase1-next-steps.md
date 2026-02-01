@@ -8,8 +8,8 @@ and focuses only on incomplete work. Items are ordered by recommended delivery s
 - **Hosting:** Vercel.
 
 ## Recommended next steps (in order)
-1. **Admin superuser + invite gating**  
-   Create an admin role that can view all data, verify teacher accounts, and manage invites/authorization.
+1. **Admin superuser + invite gating (in progress)**  
+   Admin role, invite workflow, and admin console are implemented. Remaining: finish RLS hardening across all tables and verify admin visibility of all datasets.
 
 2. **Finish wiring teacher console to Supabase**  
    Replace remaining client-only actions with Supabase queries/mutations and error handling for classes, assignments, and word banks.

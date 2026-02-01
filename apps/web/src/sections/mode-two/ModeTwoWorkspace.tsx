@@ -86,6 +86,28 @@ const ModeTwoWorkspace = () => {
   const assignments = useTeacherStore((state) => state.assignments);
   const libraryWordBanks = useTeacherStore((state) => state.wordBanks);
   const addSharedFile = useTeacherStore((state) => state.addSharedFile);
+  const [remoteAssignments, setRemoteAssignments] = useState<
+    Array<{
+      id: string;
+      title: string;
+      classId: string;
+      modeLock: "mode1" | "mode2";
+      wordBankIds: string[];
+      templateId: string | null;
+      dueAt: Date | null;
+      settings: {
+        wordLimit?: number;
+        enableTTS?: boolean;
+        slotsEnabled?: Array<"who" | "doing" | "what" | "where" | "when">;
+      };
+      status: "draft" | "published";
+      catalogWordBanks?: Record<string, WordBankSnapshot>;
+    }>
+  >([]);
+  const [remoteBanks, setRemoteBanks] = useState<ModeTwoBank[]>([]);
+  const [remoteLoadState, setRemoteLoadState] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
   const { canSpeak, isSpeaking, speak, stop, voices } = useSpeechSynthesis({
     locale: "en-gb",
   });
@@ -352,6 +374,104 @@ const ModeTwoWorkspace = () => {
   }, [isPupilSession, pupilId, loadDrafts]);
 
   useEffect(() => {
+    const loadRemoteAssignments = async () => {
+      if (!isPupilSession || !supabase || !pupilId) {
+        return;
+      }
+      setRemoteLoadState("loading");
+      try {
+        const { data: pupilRow, error: pupilError } = await supabase
+          .from("pupils")
+          .select("class_id, classes(owner_id)")
+          .eq("id", pupilId)
+          .single();
+        if (pupilError || !pupilRow?.class_id) {
+          setRemoteAssignments([]);
+          setRemoteBanks([]);
+          setRemoteLoadState("ready");
+          return;
+        }
+        const classId = pupilRow.class_id as string;
+        const ownerId = pupilRow.classes?.owner_id ?? null;
+
+        const { data: assignmentRows, error: assignmentError } = await supabase
+          .from("assignments")
+          .select(
+            "id,title,class_id,mode_lock,word_bank_ids,template_id,due_at,settings,status,catalog_word_banks",
+          )
+          .eq("class_id", classId)
+          .order("created_at", { ascending: false });
+
+        if (assignmentError) {
+          throw assignmentError;
+        }
+
+        const mappedAssignments =
+          assignmentRows?.map((row) => ({
+            id: row.id,
+            title: row.title,
+            classId: row.class_id,
+            modeLock: row.mode_lock ?? "mode2",
+            wordBankIds: row.word_bank_ids ?? [],
+            templateId: row.template_id ?? null,
+            dueAt: row.due_at ? new Date(row.due_at) : null,
+            settings: row.settings ?? {},
+            status: row.status ?? "published",
+            catalogWordBanks: row.catalog_word_banks ?? undefined,
+          })) ?? [];
+
+        setRemoteAssignments(mappedAssignments);
+
+        if (!ownerId) {
+          setRemoteBanks([]);
+          setRemoteLoadState("ready");
+          return;
+        }
+
+        const { data: bankRows, error: bankError } = await supabase
+          .from("word_banks")
+          .select(
+            "id,title,description,level,tags,colour_map,category,topic,word_bank_items(id,text,slot,tags)",
+          )
+          .eq("owner_id", ownerId)
+          .order("created_at", { ascending: false });
+
+        if (bankError) {
+          throw bankError;
+        }
+
+        const mappedBanks: ModeTwoBank[] =
+          bankRows?.map((bank) => ({
+            id: bank.id,
+            title: bank.title,
+            description: bank.description ?? undefined,
+            level: bank.level,
+            tags: bank.tags ?? [],
+            colourMap: bank.colour_map ?? undefined,
+            category: bank.category ?? "nouns",
+            topic: bank.topic ?? "General",
+            items: (bank.word_bank_items ?? []).map((item) => ({
+              id: item.id,
+              text: item.text,
+              tags: item.tags ?? [],
+              slot: item.slot ?? undefined,
+            })),
+          })) ?? [];
+
+        setRemoteBanks(mappedBanks);
+        setRemoteLoadState("ready");
+      } catch (error) {
+        console.warn("Unable to load pupil assignments:", error);
+        setRemoteAssignments([]);
+        setRemoteBanks([]);
+        setRemoteLoadState("error");
+      }
+    };
+
+    void loadRemoteAssignments();
+  }, [isPupilSession, pupilId]);
+
+  useEffect(() => {
     if (!isPupilSession || !activeDraftId || !supabase) {
       return;
     }
@@ -399,19 +519,23 @@ const ModeTwoWorkspace = () => {
   }, [activeDraftId, draftHtml, draftTitle, isPupilSession, plainText]);
 
   const activeAssignment = useMemo(() => {
-    const modeTwoAssignments = assignments.filter(
+    const sourceAssignments = isPupilSession ? remoteAssignments : assignments;
+    const modeTwoAssignments = sourceAssignments.filter(
       (assignment) => assignment.modeLock !== "mode1",
     );
     const published = modeTwoAssignments.find(
       (assignment) => assignment.status === "published",
     );
     return published ?? modeTwoAssignments[0] ?? null;
-  }, [assignments]);
+  }, [assignments, isPupilSession, remoteAssignments]);
 
-  const activeWordBankIds = useMemo(
-    () => activeAssignment?.wordBankIds ?? [],
-    [activeAssignment],
-  );
+  const activeWordBankIds = useMemo(() => {
+    const assigned = activeAssignment?.wordBankIds ?? [];
+    const catalogIds = activeAssignment?.catalogWordBanks
+      ? Object.keys(activeAssignment.catalogWordBanks)
+      : [];
+    return Array.from(new Set([...assigned, ...catalogIds]));
+  }, [activeAssignment]);
 
   const assignedCatalogBanks = useMemo(() => {
     if (!activeAssignment) {
@@ -483,8 +607,9 @@ const ModeTwoWorkspace = () => {
   }, [assignedCatalogBanks]);
 
   const allCategoryBanks = useMemo(() => {
-    return [...catalogCategoryBanks, ...libraryWordBanks];
-  }, [catalogCategoryBanks, libraryWordBanks]);
+    const baseBanks = isPupilSession ? remoteBanks : libraryWordBanks;
+    return [...catalogCategoryBanks, ...baseBanks];
+  }, [catalogCategoryBanks, isPupilSession, libraryWordBanks, remoteBanks]);
 
   const availableTopics = useMemo(() => {
     const topics = new Set<ModeTwoBank["topic"]>();
