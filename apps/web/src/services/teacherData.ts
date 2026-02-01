@@ -558,3 +558,24 @@ export const createTeacherWordBank = async (
     })),
   } satisfies TeacherWordBank;
 };
+
+export const deleteTeacherWordBank = async (bankId: string) => {
+  const client = requireSupabase();
+  const { error: itemError } = await client
+    .from("word_bank_items")
+    .delete()
+    .eq("bank_id", bankId);
+
+  if (itemError) {
+    throw new Error(itemError.message);
+  }
+
+  const { error: bankError } = await client
+    .from("word_banks")
+    .delete()
+    .eq("id", bankId);
+
+  if (bankError) {
+    throw new Error(bankError.message);
+  }
+};

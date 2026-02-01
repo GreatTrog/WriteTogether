@@ -179,6 +179,7 @@ type UseModeTwoExportResult = {
   exportMessage: string;
   exportToast: string | null;
   handleExportPreview: () => Promise<void>;
+  handlePrint: () => Promise<void>;
 };
 
 const resolveTeacherProfileId = async () => {
@@ -361,7 +362,10 @@ const useModeTwoExport = ({
       shouldRefocus = editor?.isFocused ?? false;
       editor?.commands.blur();
 
-      const username = resolveUsername();
+      const username =
+        pupilLogin?.username && pupilLogin.username.trim()
+          ? pupilLogin.username.trim()
+          : resolveUsername();
       const horizontalMargin = 48;
       const verticalMargin = 48;
       const exportHtml = (editor?.getHTML() ?? draftHtml).trim();
@@ -435,27 +439,7 @@ const useModeTwoExport = ({
       };
 
       const pdfBlob = await generatePdfBlob(docDefinition);
-      let savedLocation = "Browser download";
-      if (fileHandle) {
-        try {
-          const writable = await fileHandle.createWritable();
-          await writable.write(pdfBlob);
-          await writable.close();
-          savedLocation = `File picker (${resolvedFilename})`;
-        } catch {
-          setExportState("error");
-          setExportMessage("We couldn't save the PDF. Please try again.");
-          return;
-        }
-      } else {
-        try {
-          downloadBlob(pdfBlob, resolvedFilename);
-        } catch {
-          setExportState("error");
-          setExportMessage("We couldn't save the PDF. Please try again.");
-          return;
-        }
-      }
+      const savedLocation = "Teacher share";
 
       const teacherProfileId = await resolveTeacherProfileId();
       let storedInDb = false;
@@ -503,51 +487,104 @@ const useModeTwoExport = ({
             };
           }
         } catch (error) {
+          const shouldOfferFallback =
+            !navigator.onLine ||
+            (error instanceof Error &&
+              /network|failed to fetch|fetch failed|connection|offline/i.test(
+                error.message,
+              ));
+          if (shouldOfferFallback) {
+            const fallback = window.confirm(
+              "You're offline. Would you like to download or print the PDF now?",
+            );
+            if (fallback) {
+              const objectUrl = URL.createObjectURL(pdfBlob);
+              const printWindow = window.open(objectUrl, "_blank", "noopener");
+              if (!printWindow) {
+                downloadBlob(pdfBlob, resolvedFilename);
+              } else {
+                printWindow.addEventListener("load", () => {
+                  printWindow.focus();
+                  printWindow.print();
+                });
+              }
+              window.setTimeout(() => {
+                URL.revokeObjectURL(objectUrl);
+              }, 60_000);
+            }
+          }
           console.warn(
             "Pupil export submit failed:",
             error instanceof Error ? error.message : error,
           );
         }
       } else if (teacherProfileId) {
-        const storagePath = await uploadExportToSupabase(
-          teacherProfileId,
-          resolvedFilename,
-          pdfBlob,
-        );
-        if (storagePath) {
-          storageKey = storagePath;
-          storedInDb = await persistSharedFileRecord({
-            owner_id: teacherProfileId,
-            filename: resolvedFilename,
-            username,
-            saved_at: now.toISOString(),
-            location: savedLocation,
-            size_bytes: pdfBlob.size,
-            word_count: wordCount,
-            storage_key: storageKey,
-          });
-          if (storedInDb) {
-            sharedRecord = {
+        try {
+          const storagePath = await uploadExportToSupabase(
+            teacherProfileId,
+            resolvedFilename,
+            pdfBlob,
+          );
+          if (storagePath) {
+            storageKey = storagePath;
+            storedInDb = await persistSharedFileRecord({
+              owner_id: teacherProfileId,
               filename: resolvedFilename,
               username,
-              savedAt: now.toISOString(),
+              saved_at: now.toISOString(),
               location: savedLocation,
-              sizeBytes: pdfBlob.size,
-              wordCount,
-              storageKey,
-            };
+              size_bytes: pdfBlob.size,
+              word_count: wordCount,
+              storage_key: storageKey,
+            });
+            if (storedInDb) {
+              sharedRecord = {
+                filename: resolvedFilename,
+                username,
+                savedAt: now.toISOString(),
+                location: savedLocation,
+                sizeBytes: pdfBlob.size,
+                wordCount,
+                storageKey,
+              };
+            }
           }
+        } catch (error) {
+          const shouldOfferFallback =
+            !navigator.onLine ||
+            (error instanceof Error &&
+              /network|failed to fetch|fetch failed|connection|offline/i.test(
+                error.message,
+              ));
+          if (shouldOfferFallback) {
+            const fallback = window.confirm(
+              "You're offline. Would you like to download or print the PDF now?",
+            );
+            if (fallback) {
+              const objectUrl = URL.createObjectURL(pdfBlob);
+              const printWindow = window.open(objectUrl, "_blank", "noopener");
+              if (!printWindow) {
+                downloadBlob(pdfBlob, resolvedFilename);
+              } else {
+                printWindow.addEventListener("load", () => {
+                  printWindow.focus();
+                  printWindow.print();
+                });
+              }
+              window.setTimeout(() => {
+                URL.revokeObjectURL(objectUrl);
+              }, 60_000);
+            }
+          }
+          console.warn(
+            "Teacher export submit failed:",
+            error instanceof Error ? error.message : error,
+          );
         }
       }
 
       if (!storedInDb) {
-        const localStorageKey = createId();
-        const storedLocally = await saveSharedFileBlob(
-          localStorageKey,
-          pdfBlob,
-          resolvedFilename,
-        );
-        storageKey = storedLocally ? localStorageKey : null;
+        storageKey = null;
       }
 
       if (sharedRecord) {
@@ -562,8 +599,8 @@ const useModeTwoExport = ({
       }
       setExportToast(
         storedInDb
-          ? "File exported and shared with your teacher."
-          : "File exported locally. Ask your teacher to request a re-export.",
+          ? "File shared with your teacher."
+          : "File shared locally. Ask your teacher to request a re-export.",
       );
       exportToastTimerRef.current = window.setTimeout(() => {
         setExportToast(null);
@@ -582,11 +619,128 @@ const useModeTwoExport = ({
     }
   }, [addSharedFile, draftHtml, editor, plainText]);
 
+  const handlePrint = useCallback(async () => {
+    if (!plainText.trim()) {
+      return;
+    }
+
+    let shouldRefocus = false;
+
+    try {
+      const now = new Date();
+      const titleSeed = draftTitle?.trim() || "My writing";
+      const headingTitle = titleSeed;
+
+      shouldRefocus = editor?.isFocused ?? false;
+      editor?.commands.blur();
+
+      const pupilLogin = await resolvePupilLogin();
+      const username =
+        pupilLogin?.username && pupilLogin.username.trim()
+          ? pupilLogin.username.trim()
+          : resolveUsername();
+      const horizontalMargin = 48;
+      const verticalMargin = 48;
+      const exportHtml = (editor?.getHTML() ?? draftHtml).trim();
+      const trimmedContent = plainText.trim();
+      const fallbackHtml =
+        trimmedContent
+          .split(/\n{2,}/)
+          .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
+          .join("") || "<p>&nbsp;</p>";
+      const sanitizedHtml = sanitizeForPdf(exportHtml || fallbackHtml);
+      const pdfContentNodes = htmlToPdfmake(`<div>${sanitizedHtml}</div>`, { window });
+      const bodyContent = Array.isArray(pdfContentNodes)
+        ? pdfContentNodes
+        : [pdfContentNodes];
+      const wordCount = trimmedContent.split(/\s+/).length;
+
+      const docDefinition: TDocumentDefinitions = {
+        info: {
+          title: headingTitle,
+          author: username,
+        },
+        pageMargins: [horizontalMargin, verticalMargin, horizontalMargin, verticalMargin],
+        defaultStyle: {
+          fontSize: 11,
+          lineHeight: 1.5,
+        },
+        styles: {
+          exportTitle: {
+            fontSize: 18,
+            bold: true,
+            margin: [0, 0, 0, 8],
+          },
+          exportMetaGroup: {
+            margin: [0, 0, 0, 12],
+          },
+          exportMeta: {
+            fontSize: 10,
+            color: "#475569",
+            margin: [0, 0, 0, 2],
+          },
+          exportFooter: {
+            fontSize: 9,
+            color: "#64748b",
+          },
+        },
+        content: [
+          { text: headingTitle, style: "exportTitle" },
+          {
+            stack: [
+              { text: `Author: ${username}`, style: "exportMeta" },
+              { text: `Saved: ${now.toLocaleString()}`, style: "exportMeta" },
+              { text: `Word count: ${wordCount}`, style: "exportMeta" },
+            ],
+            style: "exportMetaGroup",
+          },
+          { text: "", margin: [0, 4, 0, 4] },
+          ...bodyContent,
+        ],
+        footer: (currentPage, pageCount) => ({
+          margin: [horizontalMargin, 12, horizontalMargin, 0],
+          columns: [
+            { text: "", width: "*" },
+            {
+              text: `Page ${currentPage} of ${pageCount}`,
+              alignment: "right",
+              style: "exportFooter",
+            },
+          ],
+        }),
+      };
+
+      const pdfBlob = await generatePdfBlob(docDefinition);
+      const objectUrl = URL.createObjectURL(pdfBlob);
+      const printWindow = window.open(objectUrl, "_blank", "noopener");
+      if (!printWindow) {
+        downloadBlob(pdfBlob, `${slugify(headingTitle) || "writing"}.pdf`);
+        return;
+      }
+      printWindow.addEventListener("load", () => {
+        printWindow.focus();
+        printWindow.print();
+      });
+      window.setTimeout(() => {
+        URL.revokeObjectURL(objectUrl);
+      }, 60_000);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      if (shouldRefocus) {
+        window.setTimeout(() => {
+          editor?.commands.focus("end");
+        }, 50);
+      }
+    }
+  }, [draftHtml, draftTitle, editor, plainText]);
+
   return {
     exportState,
     exportMessage,
     exportToast,
     handleExportPreview,
+    handlePrint,
   };
 };
 

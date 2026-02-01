@@ -1,9 +1,9 @@
 import { type TopicFilter } from "./types";
 
 type ModeTwoSettingsMenuProps = {
-  availableTopics: TopicFilter[];
-  topicFilter: TopicFilter;
-  onTopicChange: (topic: TopicFilter) => void;
+  assignmentOptions: Array<{ value: string; label: string }>;
+  selectedAssignmentId: string;
+  onAssignmentChange: (value: string) => void;
   sortMode: "class" | "alphabetical";
   onSortModeChange: (mode: "class" | "alphabetical") => void;
   voices: SpeechSynthesisVoice[];
@@ -13,9 +13,9 @@ type ModeTwoSettingsMenuProps = {
 };
 
 const ModeTwoSettingsMenu = ({
-  availableTopics,
-  topicFilter,
-  onTopicChange,
+  assignmentOptions,
+  selectedAssignmentId,
+  onAssignmentChange,
   sortMode,
   onSortModeChange,
   voices,
@@ -25,15 +25,15 @@ const ModeTwoSettingsMenu = ({
 }: ModeTwoSettingsMenuProps) => (
   <div className={themedClass("mode-two-left-menu")}>
     <label className="mode-two-topic-label">
-      Topic focus
+      Assignment
       <select
-        value={topicFilter}
-        onChange={(event) => onTopicChange(event.target.value as TopicFilter)}
+        value={selectedAssignmentId}
+        onChange={(event) => onAssignmentChange(event.target.value)}
         className="mode-two-select"
       >
-        {availableTopics.map((topic) => (
-          <option key={topic} value={topic}>
-            {topic === "all" ? "All topics" : topic}
+        {assignmentOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
           </option>
         ))}
       </select>

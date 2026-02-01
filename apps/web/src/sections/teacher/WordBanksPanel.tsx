@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   createTeacherWordBank,
   createSubjectLink,
+  deleteTeacherWordBank,
   fetchSubjectLinks,
   fetchTeacherWordBanks,
   normalizeSubjectSlug,
@@ -72,6 +73,7 @@ const WordBanksPanel = () => {
   const [catalogSubjects, setCatalogSubjects] = useState<string[]>([]);
   const [mergeStatus, setMergeStatus] = useState<string | null>(null);
   const [isMerging, setIsMerging] = useState(false);
+  const [deleteLegacyAfterMerge, setDeleteLegacyAfterMerge] = useState(false);
   const [bankFilter, setBankFilter] = useState<"all" | "mine">("all");
   const [teacherProfileId, setTeacherProfileId] = useState<string | null>(null);
 
@@ -217,6 +219,7 @@ const WordBanksPanel = () => {
       });
 
       const createdBanks: TeacherWordBank[] = [];
+      const deletedBankIds: string[] = [];
 
       for (const group of grouped.values()) {
         if (group.banks.length < 2) {
@@ -261,11 +264,26 @@ const WordBanksPanel = () => {
           items,
         });
         createdBanks.push(created);
+        if (deleteLegacyAfterMerge) {
+          for (const bank of group.banks) {
+            await deleteTeacherWordBank(bank.id);
+            deletedBankIds.push(bank.id);
+          }
+        }
       }
 
       if (createdBanks.length > 0) {
-        setTeacherBanks((prev) => [...createdBanks, ...prev]);
-        setMergeStatus(`Created ${createdBanks.length} merged bank(s).`);
+        setTeacherBanks((prev) => {
+          const withoutDeleted = deleteLegacyAfterMerge
+            ? prev.filter((bank) => !deletedBankIds.includes(bank.id))
+            : prev;
+          return [...createdBanks, ...withoutDeleted];
+        });
+        const deletedCount = deleteLegacyAfterMerge ? deletedBankIds.length : 0;
+        setMergeStatus(
+          `Created ${createdBanks.length} merged bank(s).` +
+            (deletedCount > 0 ? ` Deleted ${deletedCount} legacy bank(s).` : ""),
+        );
       } else {
         setMergeStatus("No legacy split banks found to merge.");
       }
@@ -416,11 +434,23 @@ const WordBanksPanel = () => {
     return teacherBanks;
   }, [bankFilter, teacherBanks, teacherProfileId]);
 
-  const customGroups = useMemo(() => {
-    return categories.map((entry) => ({
+const customGroups = useMemo(() => {
+    const baseGroups = categories.map((entry) => ({
       ...entry,
       banks: filteredTeacherBanks.filter((bank) => bank.category === entry.value),
     }));
+    const mixedBanks = filteredTeacherBanks.filter((bank) => bank.category === "mixed");
+    if (mixedBanks.length === 0) {
+      return baseGroups;
+    }
+    return [
+      {
+        value: "mixed",
+        label: "Mixed banks",
+        banks: mixedBanks,
+      },
+      ...baseGroups,
+    ];
   }, [filteredTeacherBanks]);
 
   return (
@@ -612,7 +642,16 @@ const WordBanksPanel = () => {
           >
             {isMerging ? "Merging..." : "Merge legacy banks"}
           </button>
-          <label className="ml-auto flex items-center gap-2 text-xs font-medium text-slate-600">
+          <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+            <input
+              type="checkbox"
+              checked={deleteLegacyAfterMerge}
+              onChange={(event) => setDeleteLegacyAfterMerge(event.target.checked)}
+              className="h-4 w-4 accent-slate-900"
+            />
+            Delete legacy banks after merge
+          </label>
+          <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
             Show
             <select
               value={bankFilter}

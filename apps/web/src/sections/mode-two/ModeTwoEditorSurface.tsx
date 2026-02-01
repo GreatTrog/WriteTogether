@@ -57,16 +57,6 @@ const ModeTwoEditorSurface = ({
       >
         Clear
       </button>
-      <button
-        type="button"
-        onClick={onExportPreview}
-        disabled={exportState === "loading" || !plainText.trim()}
-        className={`mode-two-action-button mode-two-action-button--export${
-          exportState === "loading" || !plainText.trim() ? " is-disabled" : ""
-        }`}
-      >
-        {exportState === "loading" ? "Sending..." : "Send to Teacher"}
-      </button>
     </div>
   </div>
 );

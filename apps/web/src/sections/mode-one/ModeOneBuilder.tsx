@@ -96,6 +96,8 @@ const ModeOneBuilder = () => {
   });
   const [draggingChip, setDraggingChip] = useState<string | null>(null);
   const [hoverSlot, setHoverSlot] = useState<ColourSlot | null>(null);
+  const [selectedAssignmentId, setSelectedAssignmentId] =
+    useState<string>("general");
   const [remoteAssignments, setRemoteAssignments] = useState<
     Array<{
       id: string;
@@ -158,8 +160,6 @@ const ModeOneBuilder = () => {
           return;
         }
         const classId = pupilRow.class_id as string;
-        const ownerId = pupilRow.classes?.owner_id ?? null;
-
         const { data: assignmentRows, error: assignmentError } = await supabase
           .from("assignments")
           .select(
@@ -188,7 +188,13 @@ const ModeOneBuilder = () => {
 
         setRemoteAssignments(mappedAssignments);
 
-        if (!ownerId) {
+        const assignedBankIds = Array.from(
+          new Set(
+            mappedAssignments.flatMap((assignment) => assignment.wordBankIds ?? []),
+          ),
+        );
+
+        if (assignedBankIds.length === 0) {
           setRemoteBanks([]);
           return;
         }
@@ -196,7 +202,7 @@ const ModeOneBuilder = () => {
         const { data: bankRows, error: bankError } = await supabase
           .from("word_banks")
           .select("id,category,word_bank_items(id,text,slot)")
-          .eq("owner_id", ownerId)
+          .in("id", assignedBankIds)
           .order("created_at", { ascending: false });
 
         if (bankError) {
@@ -230,11 +236,55 @@ const ModeOneBuilder = () => {
     const modeOneAssignments = sourceAssignments.filter(
       (assignment) => assignment.modeLock === "mode1",
     );
-    const published = modeOneAssignments.find(
+    const published = modeOneAssignments.filter(
       (assignment) => assignment.status === "published",
     );
-    return published ?? modeOneAssignments[0] ?? null;
+    const resolved =
+      selectedAssignmentId === "general"
+        ? null
+        : published.find((assignment) => assignment.id === selectedAssignmentId) ??
+          published[0] ??
+          modeOneAssignments.find(
+            (assignment) => assignment.id === selectedAssignmentId,
+          ) ??
+          modeOneAssignments[0] ??
+          null;
+    return resolved;
+  }, [assignments, isPupilSession, remoteAssignments, selectedAssignmentId]);
+
+  const assignmentOptions = useMemo(() => {
+    const sourceAssignments = isPupilSession ? remoteAssignments : assignments;
+    const modeOneAssignments = sourceAssignments.filter(
+      (assignment) => assignment.modeLock === "mode1",
+    );
+    const published = modeOneAssignments.filter(
+      (assignment) => assignment.status === "published",
+    );
+    const options = (published.length > 0 ? published : modeOneAssignments).map(
+      (assignment) => ({
+        value: assignment.id,
+        label: assignment.title,
+      }),
+    );
+    return [{ value: "general", label: "General bank" }, ...options];
   }, [assignments, isPupilSession, remoteAssignments]);
+
+  useEffect(() => {
+    const hasAssignments = assignmentOptions.length > 1;
+    if (!hasAssignments) {
+      if (selectedAssignmentId !== "general") {
+        setSelectedAssignmentId("general");
+      }
+      return;
+    }
+    if (
+      selectedAssignmentId !== "general" &&
+      assignmentOptions.some((option) => option.value === selectedAssignmentId)
+    ) {
+      return;
+    }
+    setSelectedAssignmentId(assignmentOptions[1].value);
+  }, [assignmentOptions, selectedAssignmentId]);
 
   const assignedChips = useMemo<SemanticsChip[]>(() => {
     if (!activeAssignment) {
@@ -512,6 +562,20 @@ const ModeOneBuilder = () => {
 
   const settingsMenu = useMemo(() => (
     <div className="flex flex-col gap-4 text-sm text-slate-700">
+      <div className="space-y-2">
+        <p className="font-semibold text-slate-900">Assignment</p>
+        <select
+          value={selectedAssignmentId}
+          onChange={(event) => setSelectedAssignmentId(event.target.value)}
+          className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+        >
+          {assignmentOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
       <div>
         <p className="font-semibold text-slate-900">Teacher Controls</p>
         <p className="mt-1 text-xs text-slate-500">
@@ -583,7 +647,16 @@ const ModeOneBuilder = () => {
         </div>
       ) : null}
     </div>
-  ), [handleClear, handleToggleSlot, punctuation, slotState, voiceIndex, voices]);
+  ), [
+    assignmentOptions,
+    handleClear,
+    handleToggleSlot,
+    punctuation,
+    selectedAssignmentId,
+    slotState,
+    voiceIndex,
+    voices,
+  ]);
   const slotBoard = (
     <div className="flex flex-wrap items-center justify-center gap-3">
       {slotOrder.map((slot) => {

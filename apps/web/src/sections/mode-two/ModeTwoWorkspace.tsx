@@ -33,7 +33,6 @@ import {
   type AlphabeticalBucket,
 } from "./modeTwoBankUtils";
 import useModeTwoExport from "./useModeTwoExport";
-import { type TopicFilter } from "./types";
 
 // Mode 2 offers a click-to-compose drafting space with adaptive templates and export hooks.
 const draftStorageKey = "writetogether-mode2-draft";
@@ -100,8 +99,9 @@ const ModeTwoWorkspace = () => {
       : "";
 
   // Hydrate state from localStorage so drafts, theme, and filters survive reloads.
-  const [topicFilter, setTopicFilter] = useState<TopicFilter>("all");
   const [sortMode, setSortMode] = useState<"class" | "alphabetical">("class");
+  const [selectedAssignmentId, setSelectedAssignmentId] =
+    useState<string>("general");
   const [draftHtml, setDraftHtml] = useState<string>(() => {
     if (typeof window === "undefined") {
       return "";
@@ -346,7 +346,7 @@ const ModeTwoWorkspace = () => {
     return (container.textContent ?? "").replace(/\u00a0/g, " ");
   }, [draftHtml]);
 
-  const { exportState, exportMessage, exportToast, handleExportPreview } =
+  const { exportState, exportMessage, exportToast, handleExportPreview, handlePrint } =
     useModeTwoExport({
       editor,
       draftHtml,
@@ -400,6 +400,14 @@ const ModeTwoWorkspace = () => {
   }, [voices, voiceIndex]);
 
   useEffect(() => {
+    if (!exportToast || !canSpeak) {
+      return;
+    }
+    const selectedVoice = voices[voiceIndex] ?? voices[0];
+    speak(exportToast, { voice: selectedVoice, rate: 1 });
+  }, [canSpeak, exportToast, speak, voiceIndex, voices]);
+
+  useEffect(() => {
     if (isPupilSession) {
       return;
     }
@@ -435,8 +443,6 @@ const ModeTwoWorkspace = () => {
           return;
         }
         const classId = pupilRow.class_id as string;
-        const ownerId = pupilRow.classes?.owner_id ?? null;
-
         const { data: assignmentRows, error: assignmentError } = await supabase
           .from("assignments")
           .select(
@@ -465,7 +471,13 @@ const ModeTwoWorkspace = () => {
 
         setRemoteAssignments(mappedAssignments);
 
-        if (!ownerId) {
+        const assignedBankIds = Array.from(
+          new Set(
+            mappedAssignments.flatMap((assignment) => assignment.wordBankIds ?? []),
+          ),
+        );
+
+        if (assignedBankIds.length === 0) {
           setRemoteBanks([]);
           setRemoteLoadState("ready");
           return;
@@ -476,7 +488,7 @@ const ModeTwoWorkspace = () => {
           .select(
             "id,title,description,level,tags,colour_map,category,topic,word_bank_items(id,text,slot,tags)",
           )
-          .eq("owner_id", ownerId)
+          .in("id", assignedBankIds)
           .order("created_at", { ascending: false });
 
         if (bankError) {
@@ -561,16 +573,61 @@ const ModeTwoWorkspace = () => {
     };
   }, [activeDraftId, draftHtml, draftTitle, isPupilSession, plainText]);
 
+  const assignmentOptions = useMemo(() => {
+    const sourceAssignments = isPupilSession ? remoteAssignments : assignments;
+    const modeTwoAssignments = sourceAssignments.filter(
+      (assignment) => assignment.modeLock !== "mode1",
+    );
+    const published = modeTwoAssignments.filter(
+      (assignment) => assignment.status === "published",
+    );
+    const options = (published.length > 0 ? published : modeTwoAssignments).map(
+      (assignment) => ({
+        value: assignment.id,
+        label: assignment.title,
+      }),
+    );
+    return [{ value: "general", label: "General bank" }, ...options];
+  }, [assignments, isPupilSession, remoteAssignments]);
+
+  useEffect(() => {
+    const hasAssignments = assignmentOptions.length > 1;
+    if (!hasAssignments) {
+      if (selectedAssignmentId !== "general") {
+        setSelectedAssignmentId("general");
+      }
+      return;
+    }
+    if (
+      selectedAssignmentId !== "general" &&
+      assignmentOptions.some((option) => option.value === selectedAssignmentId)
+    ) {
+      return;
+    }
+    setSelectedAssignmentId(assignmentOptions[1].value);
+  }, [assignmentOptions, selectedAssignmentId]);
+
+
   const activeAssignment = useMemo(() => {
     const sourceAssignments = isPupilSession ? remoteAssignments : assignments;
     const modeTwoAssignments = sourceAssignments.filter(
       (assignment) => assignment.modeLock !== "mode1",
     );
-    const published = modeTwoAssignments.find(
+    const published = modeTwoAssignments.filter(
       (assignment) => assignment.status === "published",
     );
-    return published ?? modeTwoAssignments[0] ?? null;
-  }, [assignments, isPupilSession, remoteAssignments]);
+    const resolved =
+      selectedAssignmentId === "general"
+        ? null
+        : published.find((assignment) => assignment.id === selectedAssignmentId) ??
+          published[0] ??
+          modeTwoAssignments.find(
+            (assignment) => assignment.id === selectedAssignmentId,
+          ) ??
+          modeTwoAssignments[0] ??
+          null;
+    return resolved;
+  }, [assignments, isPupilSession, remoteAssignments, selectedAssignmentId]);
 
   const activeWordBankIds = useMemo(() => {
     const assigned = activeAssignment?.wordBankIds ?? [];
@@ -651,33 +708,22 @@ const ModeTwoWorkspace = () => {
 
   const allCategoryBanks = useMemo(() => {
     const baseBanks = isPupilSession ? remoteBanks : libraryWordBanks;
-    const expanded = baseBanks.flatMap(splitMixedBank);
+    const assignedIds = new Set(activeAssignment?.wordBankIds ?? []);
+    const filtered =
+      activeAssignment && assignedIds.size > 0
+        ? baseBanks.filter((bank) => assignedIds.has(bank.id))
+        : baseBanks;
+    const expanded = filtered.flatMap(splitMixedBank);
     return [...catalogCategoryBanks, ...expanded];
-  }, [catalogCategoryBanks, isPupilSession, libraryWordBanks, remoteBanks]);
+  }, [
+    activeAssignment,
+    catalogCategoryBanks,
+    isPupilSession,
+    libraryWordBanks,
+    remoteBanks,
+  ]);
 
-  const availableTopics = useMemo(() => {
-    const topics = new Set<ModeTwoBank["topic"]>();
-    allCategoryBanks.forEach((bank) => topics.add(bank.topic));
-    return ["all", ...Array.from(topics)] as TopicFilter[];
-  }, [allCategoryBanks]);
-
-  useEffect(() => {
-    if (
-      topicFilter !== "all" &&
-      !allCategoryBanks.some((bank) => bank.topic === topicFilter)
-    ) {
-      setTopicFilter("all");
-    }
-  }, [allCategoryBanks, topicFilter]);
-
-  const filteredBanks = useMemo(() => {
-    return allCategoryBanks.filter((bank) => {
-      if (topicFilter !== "all" && bank.topic !== topicFilter) {
-        return false;
-      }
-      return true;
-    });
-  }, [allCategoryBanks, topicFilter]);
+  const filteredBanks = useMemo(() => allCategoryBanks, [allCategoryBanks]);
 
   const groupedCategories = useMemo(() => {
     // Re-shape stored banks so each toolbar tab renders instantly.
@@ -854,9 +900,9 @@ const ModeTwoWorkspace = () => {
   const settingsMenu = useMemo(
     () => (
       <ModeTwoSettingsMenu
-        availableTopics={availableTopics}
-        topicFilter={topicFilter}
-        onTopicChange={(nextTopic) => setTopicFilter(nextTopic)}
+        assignmentOptions={assignmentOptions}
+        selectedAssignmentId={selectedAssignmentId}
+        onAssignmentChange={(value) => setSelectedAssignmentId(value)}
         sortMode={sortMode}
         onSortModeChange={(mode) => setSortMode(mode)}
         voices={voices}
@@ -868,7 +914,14 @@ const ModeTwoWorkspace = () => {
         themedClass={themedClass}
       />
     ),
-    [availableTopics, sortMode, themedClass, topicFilter, voiceIndex, voices],
+    [
+      assignmentOptions,
+      selectedAssignmentId,
+      sortMode,
+      themedClass,
+      voiceIndex,
+      voices,
+    ],
   );
 
   const canvas = (
@@ -894,6 +947,10 @@ const ModeTwoWorkspace = () => {
                       void renameDraft();
                     } else if (action === "delete") {
                       void deleteDraft();
+                    } else if (action === "send") {
+                      void handleExportPreview();
+                    } else if (action === "print") {
+                      void handlePrint();
                     }
                     event.target.value = "";
                   }}
@@ -903,6 +960,8 @@ const ModeTwoWorkspace = () => {
                   <option value="new">New</option>
                   <option value="rename">Rename</option>
                   <option value="delete">Delete</option>
+                  <option value="send">Send to Teacher</option>
+                  <option value="print">Print</option>
                 </select>
                 <select
                   id="mode-two-draft-picker"
