@@ -6,6 +6,7 @@ import wordBanksRouter from "./routes.word-banks.js";
 import documentsRouter from "./routes.documents.js";
 import exportsRouter from "./routes.exports.js";
 import pupilsRouter from "./routes.pupils.js";
+import adminRouter from "./routes.admin.js";
 
 const router = Router();
 
@@ -22,6 +23,7 @@ router.get("/", (_req, res) => {
       "/word-banks",
       "/documents",
       "/exports/preview",
+      "/admin",
     ],
   });
 });
@@ -32,5 +34,6 @@ router.use("/word-banks", wordBanksRouter);
 router.use("/documents", documentsRouter);
 router.use("/exports", exportsRouter);
 router.use("/pupils", pupilsRouter);
+router.use("/admin", adminRouter);
 
 export default router;

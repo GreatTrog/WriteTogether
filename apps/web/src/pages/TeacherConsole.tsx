@@ -1,28 +1,25 @@
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ClassesPanel from "../sections/teacher/ClassesPanel";
 import WordBanksPanel from "../sections/teacher/WordBanksPanel";
 import AssignmentsPanel from "../sections/teacher/AssignmentsPanel";
 import AnalyticsPanel from "../sections/teacher/AnalyticsPanel";
 import SharedFilesPanel from "../sections/teacher/SharedFilesPanel";
 import PupilsPanel from "../sections/teacher/PupilsPanel";
+import AdminUsersPanel from "../sections/teacher/AdminUsersPanel";
 import useSupabaseSession from "../hooks/useSupabaseSession";
 import { requireSupabase, supabase } from "../services/supabaseClient";
-
-// Secondary nav mirrors the teacher workflow areas surfaced in Phase 1.
-const sections = [
-  { path: "", label: "Dashboard" },
-  { path: "classes", label: "Classes" },
-  { path: "pupils", label: "Pupils" },
-  { path: "assignments", label: "Assignments" },
-  { path: "banks", label: "Word Banks" },
-  { path: "shared-files", label: "Shared Files" },
-  { path: "analytics", label: "Analytics" },
-];
+import { bootstrapTeacherAccess } from "../services/adminApi";
 
 const TeacherConsole = () => {
   const { session, user, loading } = useSupabaseSession();
   const [authError, setAuthError] = useState<string | null>(null);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [accessStatus, setAccessStatus] = useState<"idle" | "checking" | "ready">(
+    "idle",
+  );
+  const [resolvedRole, setResolvedRole] = useState<string | null>(null);
+  const bootstrappedSessionRef = useRef<string | null>(null);
 
   const handleSignIn = async () => {
     if (!supabase) {
@@ -49,6 +46,49 @@ const TeacherConsole = () => {
     setAuthError(null);
     await supabase.auth.signOut();
   };
+
+  useEffect(() => {
+    const bootstrapAccess = async () => {
+      if (!supabase || !session) {
+        return;
+      }
+      if (bootstrappedSessionRef.current === session.access_token) {
+        return;
+      }
+      bootstrappedSessionRef.current = session.access_token;
+      setAccessStatus("checking");
+      setAccessError(null);
+      try {
+        const result = await bootstrapTeacherAccess();
+        setResolvedRole(result.role);
+      } catch (error) {
+        setAccessError(error instanceof Error ? error.message : "Access check failed.");
+      } finally {
+        setAccessStatus("ready");
+      }
+    };
+
+    void bootstrapAccess();
+  }, [session]);
+
+  const role = user?.user_metadata?.role ?? resolvedRole;
+  const isAdmin = role === "admin";
+  const isTeacher = role === "teacher" || role === "admin";
+
+  // Secondary nav mirrors the teacher workflow areas surfaced in Phase 1.
+  const sections = useMemo(
+    () => [
+      { path: "", label: "Dashboard" },
+      { path: "classes", label: "Classes" },
+      { path: "pupils", label: "Pupils" },
+      { path: "assignments", label: "Assignments" },
+      { path: "banks", label: "Word Banks" },
+      { path: "shared-files", label: "Shared Files" },
+      { path: "analytics", label: "Analytics" },
+      ...(isAdmin ? [{ path: "admin", label: "Admin Users" }] : []),
+    ],
+    [isAdmin],
+  );
 
   if (loading) {
     return (
@@ -88,6 +128,45 @@ const TeacherConsole = () => {
                 Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY.
               </p>
             ) : null}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (session && accessStatus === "checking") {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+        Checking teacher access...
+      </div>
+    );
+  }
+
+  if (session && !isTeacher) {
+    return (
+      <div className="space-y-6">
+        <header>
+          <h1 className="text-2xl font-bold text-slate-900">Teacher Console</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Your account is not yet authorized for teacher access.
+          </p>
+        </header>
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>
+              Ask an admin to invite your email address, then sign in again to
+              gain access.
+            </p>
+            {accessError ? (
+              <p className="text-sm text-rose-600">{accessError}</p>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              Sign out
+            </button>
           </div>
         </section>
       </div>
@@ -163,6 +242,9 @@ const TeacherConsole = () => {
           <Route path="banks" element={<WordBanksPanel />} />
           <Route path="shared-files" element={<SharedFilesPanel />} />
           <Route path="analytics" element={<AnalyticsPanel />} />
+          {isAdmin ? (
+            <Route path="admin" element={<AdminUsersPanel />} />
+          ) : null}
         </Routes>
       </section>
     </div>

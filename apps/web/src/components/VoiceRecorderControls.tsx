@@ -1,10 +1,7 @@
 import { useEffect, useMemo } from "react";
 import clsx from "clsx";
 import useVoiceRecorder, { type RecorderStatus } from "../hooks/useVoiceRecorder";
-import iconRecord from "../assets/icons/Record.svg";
-import iconPlay from "../assets/icons/Play.svg";
-import iconPause from "../assets/icons/Pause.svg";
-import iconStop from "../assets/icons/Stop.svg";
+import { Mode2Icons } from "../assets/icons/mode2ToolbarIcons";
 
 type VoiceRecorderControlsProps = {
   className?: string;
@@ -78,7 +75,6 @@ const VoiceRecorderControls = ({
     buttonClassName,
   );
 
-  const recordIcon = recorder.isRecording ? iconStop : iconRecord;
   const recordLabel = recorder.isRecording ? "Stop" : "Record";
 
   const disableRecord = recorder.isPlaying;
@@ -88,6 +84,13 @@ const VoiceRecorderControls = ({
 
   const playButtonLabel = recorder.isPaused ? "Resume" : "Play";
   const playButtonAria = recorder.isPaused ? "Resume playback" : "Play recording";
+  const renderIcon = (svg: string) => (
+    <span
+      className={iconClassName}
+      aria-hidden="true"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
 
   return (
     <div className={rootClasses}>
@@ -117,7 +120,7 @@ const VoiceRecorderControls = ({
           className={recordButtonClass}
           aria-label={recorder.isRecording ? "Stop recording" : "Start recording"}
         >
-          <img src={recordIcon} alt="" className={iconClassName} />
+          {renderIcon(recorder.isRecording ? Mode2Icons.stop : Mode2Icons.record)}
           {showButtonLabels ? <span>{recordLabel}</span> : null}
         </button>
         <button
@@ -129,7 +132,7 @@ const VoiceRecorderControls = ({
           className={playButtonClass}
           aria-label={playButtonAria}
         >
-          <img src={iconPlay} alt="" className={iconClassName} />
+          {renderIcon(Mode2Icons.play)}
           {showButtonLabels ? <span>{playButtonLabel}</span> : null}
         </button>
         <button
@@ -139,7 +142,7 @@ const VoiceRecorderControls = ({
           className={pauseButtonClass}
           aria-label="Pause playback"
         >
-          <img src={iconPause} alt="" className={iconClassName} />
+          {renderIcon(Mode2Icons.pause)}
           {showButtonLabels ? <span>Pause</span> : null}
         </button>
       </div>

@@ -241,12 +241,67 @@
   padding: 0.15rem 0.22rem;
   font-size: var(--mode-two-font-size-sm);
   box-shadow: var(--mode-two-shadow-sm);
+  position: relative;
 }
 
 .mode-two-toolbar-select {
   min-width: 140px;
   max-width: 140px;
   margin-top: 0;
+}
+
+.mode-two-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mode-two-toolbar-item--hidden {
+  display: none;
+}
+
+.mode-two-toolbar-overflow {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mode-two-toolbar-overflow-panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 120px;
+  padding: 0.4rem;
+  border: 1px solid var(--mode-two-color-border);
+  border-radius: var(--mode-two-radius-md);
+  background-color: var(--mode-two-color-panel);
+  box-shadow: var(--mode-two-shadow-md);
+}
+
+.mode-two-toolbar-overflow-item {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.mode-two-toolbar-overflow-measure {
+  position: absolute;
+  width: 0;
+  height: 0;
+  padding: 0;
+  border: 0;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mode-two-toolbar-voice {
+  flex: 0 0 auto;
 }
 
 .mode-two-toolbar-button {
@@ -262,8 +317,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
 }
 
 .mode-two-toolbar-button:hover {
@@ -273,6 +328,12 @@
 .mode-two-toolbar-icon {
   width: 24px;
   height: 24px;
+  display: block;
+}
+
+.mode-two-toolbar-icon svg {
+  width: 100%;
+  height: 100%;
   display: block;
 }
 

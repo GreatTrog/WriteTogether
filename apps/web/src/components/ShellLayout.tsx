@@ -2,8 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState, type PropsWithChildren } from "react";
 import clsx from "clsx";
 import logoWideUrl from "../assets/logo_wide.svg";
-import hamburgerIcon from "../assets/icons/Hamburger_menu.svg";
-import hamburgerCloseIcon from "../assets/icons/Hamburger_close.svg";
+import { Mode2Icons } from "../assets/icons/mode2ToolbarIcons";
 import { useGlobalMenu } from "./GlobalMenu";
 import ColorModeSection from "./global-menu/ColorModeSection";
 import { useWorkspaceSettings } from "../store/useWorkspaceSettings";
@@ -28,10 +27,15 @@ const ShellLayout = ({ children }: PropsWithChildren) => {
   const menuPanelRef = useRef<HTMLDivElement | null>(null);
 
   const isPupilRoute = location.pathname.startsWith("/pupil");
-  const isPupilUser = user?.user_metadata?.role === "pupil";
-  const visibleNavItems = isPupilUser
-    ? navItems.filter((item) => item.to !== "/teacher")
-    : navItems;
+  const role = user?.user_metadata?.role;
+  const isPupilUser = role === "pupil";
+  const isTeacherUser = role === "teacher" || role === "admin";
+  const visibleNavItems =
+    user && !isTeacherUser
+      ? navItems.filter((item) => item.to !== "/teacher")
+      : isPupilUser
+        ? navItems.filter((item) => item.to !== "/teacher")
+        : navItems;
 
   const handleTeacherLogin = async () => {
     if (!supabase) {
@@ -190,9 +194,9 @@ const ShellLayout = ({ children }: PropsWithChildren) => {
                 {item.label}
               </Link>
             ))}
-            <button
-              type="button"
-              ref={menuButtonRef}
+          <button
+            type="button"
+            ref={menuButtonRef}
               onClick={() => setMenuOpen((open) => !open)}
               className={clsx(
                 "global-menu-trigger",
@@ -202,10 +206,12 @@ const ShellLayout = ({ children }: PropsWithChildren) => {
               aria-expanded={menuOpen}
               aria-label={menuOpen ? "Close settings menu" : "Open settings menu"}
             >
-              <img
-                src={menuOpen ? hamburgerCloseIcon : hamburgerIcon}
-                alt=""
+              <span
                 className="global-menu-trigger__icon"
+                aria-hidden="true"
+                dangerouslySetInnerHTML={{
+                  __html: menuOpen ? Mode2Icons.hamburgerClose : Mode2Icons.hamburger,
+                }}
               />
             </button>
           </nav>
