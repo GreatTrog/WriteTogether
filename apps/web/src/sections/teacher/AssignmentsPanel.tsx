@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   createAssignment,
+  deleteAssignment,
   fetchAssignments,
   fetchClassesWithPupils,
   fetchSubjectLinks,
@@ -377,6 +378,38 @@ const AssignmentsPanel = () => {
     }
   };
 
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const confirmDeleteAssignment = (assignmentId: string) => {
+    setPendingDeleteId(assignmentId);
+  };
+
+  const cancelDeleteAssignment = () => {
+    setPendingDeleteId(null);
+  };
+
+  const handleDeleteAssignment = async () => {
+    if (!pendingDeleteId) {
+      return;
+    }
+    try {
+      setIsDeleting(true);
+      setError(null);
+      await deleteAssignment(pendingDeleteId);
+      setAssignments((prev) =>
+        prev.filter((assignment) => assignment.id !== pendingDeleteId),
+      );
+      setPendingDeleteId(null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to delete assignment.",
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -722,6 +755,13 @@ const AssignmentsPanel = () => {
                     >
                       {assignment.status}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => confirmDeleteAssignment(assignment.id)}
+                      className="rounded-md border border-rose-200 bg-white px-2 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+                    >
+                      Delete
+                    </button>
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
                     Due {dueAtValue ? dueAtValue.toLocaleDateString() : "flexible"}
@@ -732,6 +772,50 @@ const AssignmentsPanel = () => {
           </div>
         )}
       </section>
+      {pendingDeleteId ? (
+        (() => {
+          const pendingTitle =
+            assignments.find((assignment) => assignment.id === pendingDeleteId)
+              ?.title ?? "this assignment";
+          return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">
+              Delete assignment
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-slate-900">
+                {pendingTitle}
+              </span>
+              ? This cannot be undone.
+            </p>
+            <p className="mt-2 text-xs text-slate-500">
+              Deleting an assignment does not remove any associated word banks.
+            </p>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={cancelDeleteAssignment}
+                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAssignment}
+                className="rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete assignment"}
+              </button>
+            </div>
+          </div>
+        </div>
+          );
+        })()
+      ) : null}
     </div>
   );
 };

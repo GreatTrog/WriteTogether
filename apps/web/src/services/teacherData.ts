@@ -376,6 +376,14 @@ export const createAssignment = async (
   };
 };
 
+export const deleteAssignment = async (assignmentId: string) => {
+  const client = requireSupabase();
+  const { error } = await client.from("assignments").delete().eq("id", assignmentId);
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
 export const fetchTeacherWordBanks = async (): Promise<TeacherWordBank[]> => {
   const client = requireSupabase();
   const { data, error } = await client
