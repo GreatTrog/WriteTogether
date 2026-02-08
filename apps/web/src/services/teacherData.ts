@@ -229,17 +229,29 @@ export const createPupil = async (
   if (!ownerId) {
     throw new Error("Missing teacher profile.");
   }
-  const { error } = await client.from("pupils").insert({
-    class_id: classId,
-    owner_id: ownerId,
-    display_name: displayName,
-    needs,
-    current_mode: "mode1",
-    year_group: yearGroup,
-  });
-  if (error) {
-    throw new Error(error.message);
+  const { data, error } = await client
+    .from("pupils")
+    .insert({
+      class_id: classId,
+      owner_id: ownerId,
+      display_name: displayName,
+      needs,
+      current_mode: "mode1",
+      year_group: yearGroup,
+    })
+    .select(
+      "id,class_id,display_name,needs,current_mode,archived_at,username,auth_email,auth_user_id,year_group,classes(name,phase)",
+    )
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to create pupil.");
   }
+
+  return {
+    ...data,
+    class_name: data.classes?.name ?? null,
+    class_phase: data.classes?.phase ?? null,
+  } as TeacherPupilRow;
 };
 
 export const updatePupil = async (

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   archivePupil,
   createPupil,
@@ -12,11 +12,17 @@ import {
 } from "../../services/teacherData";
 import {
   createPupilLogin,
+  ensurePupilAuthApiAvailable,
   revealPupilPassword,
   resetPupilPassword,
 } from "../../services/pupilAuthApi";
 
 const yearGroups = ["Y1", "Y2", "Y3", "Y4", "Y5", "Y6"] as const;
+type YearGroup = (typeof yearGroups)[number];
+const importMaxFileSizeBytes = 1024 * 1024;
+
+const normalizeHeader = (value: string) =>
+  value.trim().toLowerCase().replace(/\s+/g, "_");
 
 const resolvePhaseFromYear = (year: string | null) => {
   if (!year) {
@@ -43,12 +49,78 @@ const generatePassword = () =>
   Math.random().toString(36).slice(2, 6) +
   Math.random().toString(36).slice(2, 6).toUpperCase();
 
+const normalizeYearGroup = (value: string | undefined): YearGroup => {
+  const normalized = (value ?? "").trim().toUpperCase();
+  return yearGroups.includes(normalized as YearGroup)
+    ? (normalized as YearGroup)
+    : "Y3";
+};
+
+const csvEscape = (value: string) => {
+  if (value.includes(",") || value.includes("\"") || value.includes("\n")) {
+    return `"${value.replace(/"/g, "\"\"")}"`;
+  }
+  return value;
+};
+
+const parseCsv = (text: string): string[][] => {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === "\"") {
+      if (inQuotes && next === "\"") {
+        cell += "\"";
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(cell.trim());
+      cell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") {
+        index += 1;
+      }
+      row.push(cell.trim());
+      rows.push(row);
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += char;
+  }
+
+  if (cell.length > 0 || row.length > 0) {
+    row.push(cell.trim());
+    rows.push(row);
+  }
+
+  return rows.filter((entry) => entry.some((part) => part.length > 0));
+};
+
+type LoginSeed = { username?: string; password?: string };
+
 const PupilsPanel = () => {
   const [classes, setClasses] = useState<TeacherClass[]>([]);
   const [pupils, setPupils] = useState<TeacherPupilRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [pupilName, setPupilName] = useState("");
   const [support, setSupport] = useState("");
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
@@ -58,12 +130,16 @@ const PupilsPanel = () => {
   const [classFilter, setClassFilter] = useState<string>("all");
   const [authError, setAuthError] = useState<string | null>(null);
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({});
+  const [selectedPupilIds, setSelectedPupilIds] = useState<string[]>([]);
+  const [bulkClassTarget, setBulkClassTarget] = useState<string>("");
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [loginMode, setLoginMode] = useState<"create" | "reset">("create");
   const [loginPupil, setLoginPupil] = useState<TeacherPupilRow | null>(null);
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [importProcessing, setImportProcessing] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
@@ -75,6 +151,9 @@ const PupilsPanel = () => {
       ]);
       setClasses(classData);
       setPupils(pupilData);
+      setSelectedPupilIds((current) =>
+        current.filter((id) => pupilData.some((pupil) => pupil.id === id)),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load pupils.");
     } finally {
@@ -112,21 +191,107 @@ const PupilsPanel = () => {
     });
   }, [classFilter, pupils, query, yearFilter]);
 
+  const usedUsernames = useMemo(() => {
+    return new Set(
+      pupils
+        .map((pupil) => pupil.username?.toLowerCase().trim())
+        .filter((value): value is string => Boolean(value)),
+    );
+  }, [pupils]);
+
+  const selectedSet = useMemo(() => new Set(selectedPupilIds), [selectedPupilIds]);
+  const selectedPupils = useMemo(
+    () => pupils.filter((pupil) => selectedSet.has(pupil.id)),
+    [pupils, selectedSet],
+  );
+  const filteredIds = useMemo(() => filteredPupils.map((pupil) => pupil.id), [filteredPupils]);
+  const allFilteredSelected =
+    filteredIds.length > 0 && filteredIds.every((id) => selectedSet.has(id));
+
+  const buildUniqueUsername = (rawName: string, preferred?: string) => {
+    const preferredSanitized = preferred
+      ?.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9.]/g, "")
+      .slice(0, 24);
+    const base = preferredSanitized || toUsername(rawName) || "pupil";
+    let candidate = base;
+    let suffix = 1;
+    while (usedUsernames.has(candidate)) {
+      suffix += 1;
+      const suffixText = `${suffix}`;
+      candidate = `${base.slice(0, Math.max(1, 24 - suffixText.length))}${suffixText}`;
+    }
+    usedUsernames.add(candidate);
+    return candidate;
+  };
+
+  const createLoginForPupil = async (
+    pupil: Pick<TeacherPupilRow, "id" | "display_name">,
+    seed: LoginSeed = {},
+  ) => {
+    const maxAttempts = 8;
+    let attempt = 0;
+    let username = buildUniqueUsername(pupil.display_name, seed.username);
+    const password = seed.password || generatePassword();
+    let lastError: unknown = null;
+
+    while (attempt < maxAttempts) {
+      try {
+        await createPupilLogin({
+          pupilId: pupil.id,
+          username,
+          password,
+        });
+        return { username, password };
+      } catch (err) {
+        lastError = err;
+        attempt += 1;
+        if (
+          err instanceof Error &&
+          /already|exists|duplicate|registered|taken/i.test(err.message)
+        ) {
+          username = buildUniqueUsername(pupil.display_name, `${username}${attempt + 1}`);
+          continue;
+        }
+        break;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error("Unable to create login.");
+  };
+
   const handleAddPupil = async (event: FormEvent) => {
     event.preventDefault();
     if (!pupilName.trim()) {
       return;
     }
+    setError(null);
+    setNotice(null);
     try {
-      await createPupil(
+      await ensurePupilAuthApiAvailable();
+      const createdPupil = await createPupil(
         selectedClass,
         pupilName.trim(),
         support ? [support.trim()] : [],
         yearGroup,
       );
+      let credentials: { username: string; password: string };
+      try {
+        credentials = await createLoginForPupil(createdPupil);
+      } catch (loginError) {
+        await deletePupil(createdPupil.id);
+        throw loginError;
+      }
       setPupilName("");
       setSupport("");
       setYearGroup("Y3");
+      setRevealedPasswords((current) => ({
+        ...current,
+        [createdPupil.id]: credentials.password,
+      }));
+      setNotice(
+        `Created login for ${createdPupil.display_name}: ${credentials.username} / ${credentials.password}`,
+      );
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to add pupil.");
@@ -165,13 +330,20 @@ const PupilsPanel = () => {
       setBusyId(loginPupil.id);
       setAuthError(null);
       if (loginMode === "create") {
-        await createPupilLogin({
-          pupilId: loginPupil.id,
+        const credentials = await createLoginForPupil(loginPupil, {
           username: usernameValue,
           password: loginPassword,
         });
+        setRevealedPasswords((current) => ({
+          ...current,
+          [loginPupil.id]: credentials.password,
+        }));
       } else {
         await resetPupilPassword(loginPupil.id, loginPassword);
+        setRevealedPasswords((current) => ({
+          ...current,
+          [loginPupil.id]: loginPassword,
+        }));
       }
       await refresh();
       closeLoginModal();
@@ -181,6 +353,386 @@ const PupilsPanel = () => {
       );
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const toggleSelectedPupil = (pupilId: string) => {
+    setSelectedPupilIds((current) =>
+      current.includes(pupilId)
+        ? current.filter((id) => id !== pupilId)
+        : [...current, pupilId],
+    );
+  };
+
+  const toggleSelectFiltered = () => {
+    if (allFilteredSelected) {
+      setSelectedPupilIds((current) =>
+        current.filter((id) => !filteredIds.includes(id)),
+      );
+      return;
+    }
+    setSelectedPupilIds((current) => {
+      const next = new Set(current);
+      filteredIds.forEach((id) => next.add(id));
+      return Array.from(next);
+    });
+  };
+
+  const handleBulkArchive = async () => {
+    if (selectedPupilIds.length === 0) {
+      setError("Select at least one pupil.");
+      return;
+    }
+    const required = `ARCHIVE ${selectedPupilIds.length}`;
+    const confirmation = window.prompt(
+      `Archive ${selectedPupilIds.length} pupils.\nType "${required}" to confirm.`,
+    );
+    if (confirmation !== required) {
+      return;
+    }
+    setBulkBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const results = await Promise.allSettled(
+        selectedPupilIds.map((pupilId) => archivePupil(pupilId)),
+      );
+      const failed = results.filter((result) => result.status === "rejected").length;
+      await refresh();
+      setSelectedPupilIds([]);
+      setNotice(
+        failed === 0
+          ? `Archived ${results.length} pupils.`
+          : `Archived ${results.length - failed} pupils, ${failed} failed.`,
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedPupilIds.length === 0) {
+      setError("Select at least one pupil.");
+      return;
+    }
+    const required = `DELETE ${selectedPupilIds.length}`;
+    const confirmation = window.prompt(
+      `Delete ${selectedPupilIds.length} pupils.\nThis cannot be undone.\nType "${required}" to confirm.`,
+    );
+    if (confirmation !== required) {
+      return;
+    }
+    setBulkBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const results = await Promise.allSettled(
+        selectedPupilIds.map((pupilId) => deletePupil(pupilId)),
+      );
+      const failed = results.filter((result) => result.status === "rejected").length;
+      await refresh();
+      setSelectedPupilIds([]);
+      setNotice(
+        failed === 0
+          ? `Deleted ${results.length} pupils.`
+          : `Deleted ${results.length - failed} pupils, ${failed} failed.`,
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleExportLogins = async () => {
+    const targets = selectedPupils.length > 0 ? selectedPupils : filteredPupils;
+    if (targets.length === 0) {
+      setError("No pupils available to export.");
+      return;
+    }
+    setBulkBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const lines: string[][] = [
+        [
+          "pupil_id",
+          "display_name",
+          "class_name",
+          "class_id",
+          "year_group",
+          "username",
+          "password",
+          "auth_email",
+          "support_needs",
+        ],
+      ];
+      for (const pupil of targets) {
+        let password = "";
+        if (pupil.username && pupil.auth_user_id) {
+          try {
+            password = await revealPupilPassword(pupil.id);
+          } catch {
+            password = "";
+          }
+        }
+        lines.push([
+          pupil.id,
+          pupil.display_name,
+          pupil.class_name ?? "",
+          pupil.class_id ?? "",
+          pupil.year_group ?? "",
+          pupil.username ?? "",
+          password,
+          pupil.auth_email ?? "",
+          pupil.needs.join(";"),
+        ]);
+      }
+      const csv = lines
+        .map((line) => line.map((part) => csvEscape(part)).join(","))
+        .join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `pupil-logins-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setNotice(`Exported ${targets.length} pupil login rows.`);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleImportClick = () => {
+    importInputRef.current?.click();
+  };
+
+  const handleDownloadTemplate = () => {
+    const templateRows = [
+      ["display_name", "class_name", "year_group"],
+      ["Pupil A", "Maple Class", "Y3"],
+      ["Pupil B", "Maple Class", "Y3"],
+    ];
+    const csv = templateRows
+      .map((line) => line.map((part) => csvEscape(part)).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pupil-import-template.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportCsv = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    const isCsvFile =
+      file.name.toLowerCase().endsWith(".csv") ||
+      file.type.toLowerCase().includes("csv");
+    if (!isCsvFile) {
+      setError("Upload a .csv file.");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > importMaxFileSizeBytes) {
+      setError("CSV file is too large. Maximum size is 1MB.");
+      event.target.value = "";
+      return;
+    }
+
+    const text = await file.text();
+    const rows = parseCsv(text);
+    if (rows.length < 2) {
+      setError("CSV file is empty.");
+      event.target.value = "";
+      return;
+    }
+    const header = rows[0].map((entry) => normalizeHeader(entry));
+    const col = (name: string) => header.indexOf(name);
+    const displayNameIndex = col("display_name");
+    const yearGroupIndex = col("year_group");
+    const classNameIndex = col("class_name");
+
+    const missingColumns = [
+      displayNameIndex < 0 ? "display_name" : null,
+      classNameIndex < 0 ? "class_name" : null,
+      yearGroupIndex < 0 ? "year_group" : null,
+    ].filter((entry): entry is string => Boolean(entry));
+    if (missingColumns.length > 0) {
+      setError(
+        `CSV is missing required columns: ${missingColumns.join(", ")}.`,
+      );
+      event.target.value = "";
+      return;
+    }
+
+    const classByName = new Map(
+      classes.map((group) => [group.name.trim().toLowerCase(), group.id]),
+    );
+    const knownClassNames = classes.map((group) => group.name).sort();
+    const importRows = rows.slice(1);
+    if (importRows.length > 500) {
+      setError("CSV has too many rows. Maximum 500 pupils per upload.");
+      event.target.value = "";
+      return;
+    }
+
+    const validationErrors: string[] = [];
+    const parsedRows = importRows.map((row, rowIndex) => {
+      const rowNumber = rowIndex + 2;
+      const displayName = row[displayNameIndex]?.trim() ?? "";
+      const className = row[classNameIndex]?.trim() ?? "";
+      const yearGroupValue = row[yearGroupIndex]?.trim().toUpperCase() ?? "";
+
+      if (!displayName) {
+        validationErrors.push(`Row ${rowNumber}: display_name is required.`);
+      }
+      if (!className) {
+        validationErrors.push(`Row ${rowNumber}: class_name is required.`);
+      }
+      if (!yearGroupValue) {
+        validationErrors.push(`Row ${rowNumber}: year_group is required.`);
+      }
+      if (yearGroupValue && !yearGroups.includes(yearGroupValue as YearGroup)) {
+        validationErrors.push(
+          `Row ${rowNumber}: year_group must be one of ${yearGroups.join(", ")}.`,
+        );
+      }
+
+      const resolvedClassId = classByName.get(className.toLowerCase()) ?? null;
+      if (className && !resolvedClassId) {
+        validationErrors.push(
+          `Row ${rowNumber}: class_name "${className}" was not found.`,
+        );
+      }
+
+      return {
+        rowNumber,
+        displayName,
+        className,
+        resolvedClassId,
+        yearGroup: normalizeYearGroup(yearGroupValue),
+      };
+    });
+
+    if (validationErrors.length > 0) {
+      const preview = validationErrors.slice(0, 8).join("\n");
+      const remaining = validationErrors.length - 8;
+      setError(
+        [
+          "Import failed validation:",
+          preview,
+          remaining > 0 ? `...and ${remaining} more issue(s).` : "",
+          knownClassNames.length > 0
+            ? `Known classes: ${knownClassNames.join(", ")}`
+            : "No classes found yet. Create a class first.",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      );
+      event.target.value = "";
+      return;
+    }
+
+    setBulkBusy(true);
+    setImportProcessing(true);
+    setError(null);
+    setNotice(null);
+    let created = 0;
+    const createErrors: string[] = [];
+
+    try {
+      await ensurePupilAuthApiAvailable();
+      for (const row of parsedRows) {
+        let createdPupil: TeacherPupilRow | null = null;
+        try {
+          const pupil = await createPupil(
+            row.resolvedClassId,
+            row.displayName,
+            [],
+            row.yearGroup,
+          );
+          createdPupil = pupil;
+          const credentials = await createLoginForPupil(pupil);
+          setRevealedPasswords((current) => ({
+            ...current,
+            [pupil.id]: credentials.password,
+          }));
+          created += 1;
+        } catch (err) {
+          if (createdPupil) {
+            try {
+              await deletePupil(createdPupil.id);
+            } catch {
+              // Keep the original error in output and continue processing.
+            }
+          }
+          createErrors.push(
+            `Row ${row.rowNumber}: ${err instanceof Error ? err.message : "Unable to create pupil."}`,
+          );
+        }
+      }
+      await refresh();
+      if (createErrors.length > 0) {
+        const preview = createErrors.slice(0, 8).join("\n");
+        const remaining = createErrors.length - 8;
+        setError(
+          [
+            `Imported ${created} pupils.`,
+            "Some rows failed during creation:",
+            preview,
+            remaining > 0 ? `...and ${remaining} more issue(s).` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        );
+      } else {
+        setNotice(`Imported ${created} pupils with logins.`);
+      }
+    } finally {
+      setBulkBusy(false);
+      setImportProcessing(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleBulkClassChange = async () => {
+    if (selectedPupilIds.length === 0) {
+      setError("Select at least one pupil.");
+      return;
+    }
+    if (!bulkClassTarget) {
+      setError("Choose a class for the selected pupils.");
+      return;
+    }
+
+    const nextClassId = bulkClassTarget === "unassigned" ? null : bulkClassTarget;
+    const nextClassName = nextClassId
+      ? classes.find((group) => group.id === nextClassId)?.name ?? "selected class"
+      : "Unassigned";
+
+    setBulkBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const results = await Promise.allSettled(
+        selectedPupilIds.map((pupilId) => updatePupilClass(pupilId, nextClassId)),
+      );
+      const failed = results.filter((result) => result.status === "rejected").length;
+      await refresh();
+      if (failed === 0) {
+        setSelectedPupilIds([]);
+      }
+      setNotice(
+        failed === 0
+          ? `Moved ${results.length} pupils to ${nextClassName}.`
+          : `Moved ${results.length - failed} pupils to ${nextClassName}; ${failed} failed.`,
+      );
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -226,6 +778,89 @@ const PupilsPanel = () => {
       {authError ? (
         <p className="text-sm text-rose-600">{authError}</p>
       ) : null}
+      {error ? <p className="whitespace-pre-line text-sm text-rose-600">{error}</p> : null}
+      {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleImportClick}
+            disabled={bulkBusy || loading}
+            className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Import CSV
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadTemplate}
+            disabled={bulkBusy}
+            className="rounded-md border border-sky-200 px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Download template CSV
+          </button>
+          <button
+            type="button"
+            onClick={handleExportLogins}
+            disabled={bulkBusy || loading}
+            className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Export logins CSV
+          </button>
+          <select
+            value={bulkClassTarget}
+            onChange={(event) => setBulkClassTarget(event.target.value)}
+            disabled={bulkBusy || loading}
+            className="rounded-md border border-slate-300 px-2 py-2 text-xs text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">Bulk class target</option>
+            <option value="unassigned">Unassigned</option>
+            {classes.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleBulkClassChange}
+            disabled={bulkBusy || selectedPupilIds.length === 0 || !bulkClassTarget}
+            className="rounded-md border border-indigo-200 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Change class ({selectedPupilIds.length})
+          </button>
+          <button
+            type="button"
+            onClick={handleBulkArchive}
+            disabled={bulkBusy || selectedPupilIds.length === 0}
+            className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Archive selected ({selectedPupilIds.length})
+          </button>
+          <button
+            type="button"
+            onClick={handleBulkDelete}
+            disabled={bulkBusy || selectedPupilIds.length === 0}
+            className="rounded-md border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Delete selected ({selectedPupilIds.length})
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleImportCsv}
+            className="hidden"
+          />
+          <p className="ml-auto text-xs text-slate-500">
+            Export uses selected pupils, or current filtered list when none selected.
+          </p>
+        </div>
+        <div className="mt-3 rounded-md bg-slate-50 p-3 text-xs text-slate-600">
+          CSV import instructions: fill only `display_name`, `class_name`, and `year_group`.
+          The upload creates pupil logins automatically and generates usernames/passwords.
+        </div>
+      </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.1fr_2fr]">
         <form
@@ -293,12 +928,21 @@ const PupilsPanel = () => {
             type="submit"
             className="mt-3 w-full rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600"
           >
-            Add pupil
+            Add pupil + create login
           </button>
         </form>
 
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr]">
+          <div className="grid gap-3 md:grid-cols-[auto_1.4fr_1fr_1fr]">
+            <label className="mt-6 flex items-center gap-2 text-xs font-medium text-slate-600">
+              <input
+                type="checkbox"
+                checked={allFilteredSelected}
+                onChange={toggleSelectFiltered}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              Select filtered
+            </label>
             <label className="text-xs font-medium text-slate-600">
               Search pupils
               <input
@@ -344,8 +988,6 @@ const PupilsPanel = () => {
 
           {loading ? (
             <p className="mt-4 text-sm text-slate-600">Loading pupils...</p>
-          ) : error ? (
-            <p className="mt-4 text-sm text-rose-600">{error}</p>
           ) : (
             <ul className="mt-4 space-y-2 text-sm text-slate-700">
               {filteredPupils.length === 0 ? (
@@ -359,6 +1001,12 @@ const PupilsPanel = () => {
                     className="rounded-md bg-slate-50 px-3 py-2"
                   >
                     <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedSet.has(pupil.id)}
+                        onChange={() => toggleSelectedPupil(pupil.id)}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
                       <input
                         type="text"
                         value={pupil.display_name}
@@ -633,7 +1281,7 @@ const PupilsPanel = () => {
                 onClick={closeLoginModal}
                 className="text-slate-500 hover:text-slate-700"
               >
-                ✕
+                x
               </button>
             </div>
             <div className="mt-4 grid gap-3">
@@ -681,6 +1329,21 @@ const PupilsPanel = () => {
               >
                 {loginMode === "create" ? "Create login" : "Reset password"}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {importProcessing ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">
+              Processing Account Creation
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Creating pupil accounts and logins from your CSV. Please keep this window open.
+            </p>
+            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full w-1/2 animate-pulse rounded-full bg-sky-500" />
             </div>
           </div>
         </div>

@@ -6,6 +6,27 @@ import morgan from "morgan";
 import router from "./routes/index.js";
 
 const app = express();
+app.enable("trust proxy");
+const requireHttps =
+  process.env.REQUIRE_HTTPS === "true" ||
+  (process.env.REQUIRE_HTTPS !== "false" &&
+    process.env.NODE_ENV === "production");
+
+if (requireHttps) {
+  app.use((req, res, next) => {
+    const forwardedProto = req.headers["x-forwarded-proto"];
+    const proto = Array.isArray(forwardedProto)
+      ? forwardedProto[0]
+      : forwardedProto?.split(",")[0];
+    if (req.secure || proto === "https") {
+      return next();
+    }
+    return res.status(426).json({
+      error: "HTTPS required",
+      message: "This API only accepts HTTPS requests in production.",
+    });
+  });
+}
 
 // Harden and expose the minimal API used by the prototype front-end.
 app.use(helmet());

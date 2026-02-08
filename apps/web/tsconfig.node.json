@@ -3,6 +3,7 @@
   "compilerOptions": {
     "module": "ESNext",
     "composite": true,
+    "rootDir": ".",
     "outDir": "dist"
   },
   "include": ["vite.config.ts"]
